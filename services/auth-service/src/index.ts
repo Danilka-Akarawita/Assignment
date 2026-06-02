@@ -1,0 +1,19 @@
+import app from './app.js';
+import { logger } from './utils/logger.js';
+import { initRabbitMQ } from './lib/rabbitmq.js';
+
+const PORT = process.env.PORT || 3001;
+
+async function start() {
+  try {
+    await initRabbitMQ();
+    app.listen(PORT, () => {
+      logger.info(`Auth service running on port ${PORT}`);
+    });
+  } catch (err) {
+    logger.error({ err }, 'Failed to start auth service');
+    process.exit(1);
+  }
+}
+
+start();
