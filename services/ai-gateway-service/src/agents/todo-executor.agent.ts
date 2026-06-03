@@ -1,10 +1,10 @@
 import { LlmAgent } from '@google/adk';
-import { GEMINI_MODEL } from './config.js';
+import { GPT_MODEL } from './config.js';
 import { AGENT_TOOLS } from './tools/remote-tools.js';
 
 export const todoExecutorAgent = new LlmAgent({
   name: 'TodoExecutorAgent',
-  model: GEMINI_MODEL,
+  model: GPT_MODEL,
   description: 'Executes each todo from the plan using remote tools.',
   instruction: `You execute the plan stored in session state as agent_plan.
 

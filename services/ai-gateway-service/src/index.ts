@@ -7,10 +7,6 @@ import { logger } from './utils/logger.js';
 const PORT = process.env.PORT || 3004;
 
 async function start() {
-  if (!process.env.GEMINI_API_KEY) {
-    logger.warn('GEMINI_API_KEY is not set — agent workflows will fail');
-  }
-
   try {
     await initRabbitMQ();
     await startAgentJobConsumer();

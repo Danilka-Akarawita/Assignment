@@ -25,7 +25,7 @@ export class IngestionService {
       await this.markFailed(documentId, 'No source text available for processing');
       return;
     }
-
+    logger.info({ documentId, userId: document.userId }, 'Starting ingestion for document');
     await prisma.document.update({
       where: { id: documentId },
       data: { status: 'PROCESSING', errorMessage: null },

@@ -1,9 +1,9 @@
 import { LlmAgent } from '@google/adk';
-import { GEMINI_MODEL } from './config.js';
+import { GPT_MODEL } from './config.js';
 
 export const planAgent = new LlmAgent({
   name: 'PlanAgent',
-  model: GEMINI_MODEL,
+  model: GPT_MODEL,
   description: 'Creates a multi-step plan and todo list for complex user requests.',
   instruction: `You are a planning agent for an AI assistant with access to:
 - knowledge_retrieval: search uploaded documents (invoices, PDFs, text)

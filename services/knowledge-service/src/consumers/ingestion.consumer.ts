@@ -17,18 +17,59 @@ function isIngestionMessage(value: unknown): value is IngestionMessage {
 }
 
 export async function startIngestionConsumer(): Promise<void> {
+  logger.info(
+    {
+      queue: INGESTION_QUEUE,
+      exchange: DOCUMENT_EXCHANGE,
+      routingKey: DOCUMENT_UPLOADED_KEY,
+    },
+    'Starting ingestion consumer'
+  );
+
   await startConsumer(
     INGESTION_QUEUE,
     DOCUMENT_UPLOADED_KEY,
     DOCUMENT_EXCHANGE,
     async (message: unknown) => {
-      if (!isIngestionMessage(message)) {
-        logger.warn({ message }, 'Invalid ingestion message');
-        return;
-      }
+      logger.info(
+        { rawMessage: message },
+        'Ingestion consumer received message'
+      );
 
-      logger.info({ documentId: message.documentId }, 'Processing document ingestion');
-      await ingestionService.processDocument(message.documentId);
+      try {
+        if (!isIngestionMessage(message)) {
+          logger.warn({ message }, 'Invalid ingestion message format');
+          return;
+        }
+
+        logger.info(
+          { documentId: message.documentId },
+          'Valid ingestion message received'
+        );
+
+        logger.info(
+          { documentId: message.documentId },
+          'Calling ingestionService.processDocument'
+        );
+
+        await ingestionService.processDocument(message.documentId);
+
+        logger.info(
+          { documentId: message.documentId },
+          'Document ingestion completed successfully'
+        );
+      } catch (error) {
+        logger.error(
+          {
+            error,
+            message,
+          },
+          'Error during ingestion processing'
+        );
+        throw error;
+      }
     }
   );
+
+  logger.info('Ingestion consumer started successfully');
 }

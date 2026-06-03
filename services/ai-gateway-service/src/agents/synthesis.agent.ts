@@ -1,9 +1,9 @@
 import { LlmAgent } from '@google/adk';
-import { GEMINI_MODEL } from './config.js';
+import { GPT_MODEL } from './config.js';
 
 export const synthesisAgent = new LlmAgent({
   name: 'SynthesisAgent',
-  model: GEMINI_MODEL,
+  model: GPT_MODEL,
   description: 'Produces the final user-facing answer from plan and execution results.',
   instruction: `You are the final response agent.
 

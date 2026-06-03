@@ -32,13 +32,15 @@ enum TodoStatus {
 }
 
 model Conversation {
-  id        Int       @id @default(autoincrement())
-  userId    Int       @map("user_id")
-  title     String?   @db.VarChar(500)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  messages  Message[]
-  agentRuns AgentRun[]
+  id             Int       @id @default(autoincrement())
+  userId         Int       @map("user_id")
+  title          String?   @db.VarChar(500)
+  historySummary String?   @map("history_summary") @db.Text
+  recentHistory  Json?     @map("recent_history")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  messages       Message[]
+  agentRuns      AgentRun[]
 
   @@index([userId])
   @@map("gateway_conversations")

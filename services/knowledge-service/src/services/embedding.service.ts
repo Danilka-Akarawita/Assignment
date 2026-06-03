@@ -20,7 +20,10 @@ export class EmbeddingService {
         input: batch,
         dimensions: EMBEDDING_DIMENSIONS,
       });
-
+      logger.debug(
+        { batchSize: batch.length, model: EMBEDDING_MODEL },
+        'Embedding batch generated'
+      );
       const sorted = response.data.sort((a, b) => a.index - b.index);
       allEmbeddings.push(...sorted.map((item) => item.embedding));
     }

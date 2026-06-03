@@ -45,7 +45,7 @@ Returns must be in original packaging.
 `.trim();
 
 let documentId = 0;
-let openaiAvailable = false;
+let openaiAvailable = true;
 
 async function checkOpenAiAvailable(): Promise<boolean> {
   try {
