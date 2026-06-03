@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import './instrumentation.js';
 import app from './app.js';
 import { startAgentJobConsumer } from './consumers/agent-job.consumer.js';
 import { initRabbitMQ } from './lib/rabbitmq.js';

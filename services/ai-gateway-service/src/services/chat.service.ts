@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { flushLangfuseTraces, traceAgentPipeline } from '../lib/langfuse.js';
 import { logger } from '../utils/logger.js';
 import { publishChatJob } from '../lib/rabbitmq.publisher.js';
 import { AgentOrchestratorService } from './agent-orchestrator.service.js';
@@ -96,6 +97,30 @@ export class ChatService {
   }
 
   async runAgentPipeline(params: {
+    userId: number;
+    authToken: string;
+    conversationId: number;
+    userMessageId: number;
+    agentRunId: number;
+    content: string;
+  }): Promise<SendMessageResult> {
+    try {
+      return await traceAgentPipeline(
+        {
+          name: 'chat.agent-pipeline',
+          userId: params.userId,
+          conversationId: params.conversationId,
+          agentRunId: params.agentRunId,
+          input: { userMessage: params.content },
+        },
+        () => this.runAgentPipelineInner(params)
+      );
+    } finally {
+      await flushLangfuseTraces();
+    }
+  }
+
+  private async runAgentPipelineInner(params: {
     userId: number;
     authToken: string;
     conversationId: number;

@@ -7,9 +7,11 @@ import {
   updateConversationSchema,
 } from '../schemas/chat.schema.js';
 import { ChatService } from '../services/chat.service.js';
+import { FeedbackService } from '../services/feedback.service.js';
 import { logger } from '../utils/logger.js';
 
 const chatService = new ChatService();
+const feedbackService = new FeedbackService();
 
 export const createConversation = async (req: AuthRequest, res: Response) => {
   try {
@@ -39,7 +41,22 @@ export const getConversation = async (req: AuthRequest, res: Response) => {
 
   const conversation = await chatService.getConversation(id, req.user.id);
   if (!conversation) return res.status(404).json({ error: 'Conversation not found' });
-  res.json({ conversation });
+
+  const feedbackRows = await feedbackService.getFeedbackByConversation(req.user.id, id);
+  const feedbackByMessageId = Object.fromEntries(
+    feedbackRows.map((f) => [f.assistantMessageId, f.rating])
+  );
+
+  res.json({
+    conversation: {
+      ...conversation,
+      messages: conversation.messages.map((m) => ({
+        ...m,
+        userFeedback:
+          m.role === 'ASSISTANT' ? (feedbackByMessageId[m.id] ?? null) : undefined,
+      })),
+    },
+  });
 };
 
 export const updateConversation = async (req: AuthRequest, res: Response) => {

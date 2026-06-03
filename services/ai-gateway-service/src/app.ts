@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { pinoHttp } from 'pino-http';
 import { logger } from './utils/logger.js';
 import chatRoutes from './routes/chat.js';
+import feedbackRoutes from './routes/feedback.js';
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use(
 app.use(pinoHttp({ logger }));
 
 app.use('/conversations', chatRoutes);
+app.use('/feedback', feedbackRoutes);
 
 app.get('/health', (_req, res) =>
   res.json({ status: 'ok', service: 'ai-gateway-service' })

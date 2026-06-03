@@ -1,6 +1,6 @@
-import { LlmAgent,LLMRegistry } from '@google/adk';
-import { GPT_MODEL,GEMINI_MODEL } from './config.js';
-import { OpenAILLM } from './openai-llm.js';
+import { LlmAgent } from '@google/adk';
+import { GEMINI_MODEL } from './config.js';
+import { beforeAgentGuard } from './callbacks/guardrails.js';
 
 // LLMRegistry.register(OpenAILLM);
 
@@ -8,6 +8,7 @@ export const planAgent = new LlmAgent({
   name: 'PlanAgent',
   model: GEMINI_MODEL,
   description: 'Creates a multi-step plan and todo list for complex user requests.',
+  beforeAgentCallback: beforeAgentGuard,
   instruction: `
 You are a planning agent.
 

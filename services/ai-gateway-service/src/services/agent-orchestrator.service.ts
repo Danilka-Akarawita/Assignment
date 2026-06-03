@@ -4,6 +4,7 @@ import { agentWorkflow } from '../agents/workflow.agent.js';
 import { planAgent } from '../agents/plan.agent.js';
 import { synthesisAgent } from '../agents/synthesis.agent.js';
 import { ADK_APP_NAME, GPT_MODEL,GEMINI_MODEL } from '../agents/config.js';
+import { recordAgentStepOutput, traceAgentStep } from '../lib/langfuse.js';
 import { gatewayContext } from '../lib/request-context.js';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../utils/logger.js';
@@ -66,6 +67,17 @@ Do not include any additional markdown or explanation.
   });
 
   async resolveUserMessage(input: ResolveUserMessageInput): Promise<ResolveUserMessageResult> {
+    return traceAgentStep(
+      'agent.query-rewrite',
+      { userMessage: input.userMessage, historyLength: input.history.length },
+      { userId: input.userId, sessionId: input.sessionId },
+      () => this.resolveUserMessageInner(input)
+    );
+  }
+
+  private async resolveUserMessageInner(
+    input: ResolveUserMessageInput
+  ): Promise<ResolveUserMessageResult> {
     const { userId, sessionId, userMessage, previousSummary, history } = input;
 
     await this.queryRewriterRunner.sessionService.createSession({
@@ -107,7 +119,7 @@ Output valid JSON only.`;
 
     try {
       const parsed = rewrittenText ? JSON.parse(rewrittenText) : null;
-      return {
+      const result = {
         resolvedQuery: typeof parsed?.resolvedQuery === 'string' && parsed.resolvedQuery.trim().length
           ? parsed.resolvedQuery.trim()
           : userMessage,
@@ -116,6 +128,13 @@ Output valid JSON only.`;
             ? parsed.historySummary.trim()
             : previousSummary,
       };
+      recordAgentStepOutput(
+        'agent.query-rewrite.result',
+        { userMessage },
+        result,
+        { userId, sessionId }
+      );
+      return result;
     } catch (err) {
       logger.warn({ err, rewrittenText }, 'Failed to parse query rewrite JSON');
       return {
@@ -126,6 +145,20 @@ Output valid JSON only.`;
   }
 
   async run(input: RunAgentInput): Promise<RunAgentResult> {
+    return traceAgentStep(
+      'agent.workflow',
+      { userMessage: input.userMessage },
+      {
+        userId: input.userId,
+        conversationId: input.conversationId,
+        agentRunId: input.agentRunId,
+        sessionId: input.sessionId,
+      },
+      () => this.runInner(input)
+    );
+  }
+
+  private async runInner(input: RunAgentInput): Promise<RunAgentResult> {
     const { userId, authToken, agentRunId, userMessage, sessionId } = input;
 
     await prisma.agentRun.update({
@@ -143,6 +176,7 @@ Output valid JSON only.`;
           state: {
             user_id: userId,
             agent_run_id: agentRunId,
+            user_query: userMessage,
           },
         });
 
@@ -172,6 +206,12 @@ Output valid JSON only.`;
 
             if (author === planAgent.name) {
               planRaw = text;
+              recordAgentStepOutput(
+                'agent.step.plan',
+                { userMessage },
+                { textPreview: text.slice(0, 500) },
+                { agentRunId, author }
+              );
               const plan = parseAgentPlan(text);
               if (plan) {
                 await todoTracker.persistPlan(agentRunId, {
@@ -189,8 +229,20 @@ Output valid JSON only.`;
               }
             } else if (author === 'TodoExecutorAgent') {
               executionRaw = text;
+              recordAgentStepOutput(
+                'agent.step.executor',
+                { userMessage },
+                { textPreview: text.slice(0, 500) },
+                { agentRunId, author }
+              );
             } else if (author === synthesisAgent.name) {
               finalResponse = text;
+              recordAgentStepOutput(
+                'agent.step.synthesis',
+                { userMessage },
+                { textPreview: text.slice(0, 500) },
+                { agentRunId, author }
+              );
             }
           }
         }

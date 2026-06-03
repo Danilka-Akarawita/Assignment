@@ -1,5 +1,6 @@
 import { LlmAgent } from '@google/adk';
 import { GEMINI_MODEL } from './config.js';
+import { beforeAgentGuard, beforeToolGuard } from './callbacks/guardrails.js';
 import { AGENT_TOOLS } from './tools/remote-tools.js';
 
 export const todoExecutorAgent = new LlmAgent({
@@ -7,6 +8,8 @@ export const todoExecutorAgent = new LlmAgent({
   model: GEMINI_MODEL,
   description: 'Executes todos from the generated plan.',
   tools: AGENT_TOOLS,
+  beforeAgentCallback: beforeAgentGuard,
+  beforeToolCallback: beforeToolGuard,
   instruction: `
 You are an execution agent.
 

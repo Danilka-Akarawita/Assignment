@@ -24,3 +24,7 @@ npm run dev
 ```
 
 Open http://localhost:3000
+
+## Observability (Langfuse)
+
+Agent and LLM traces from **ai-gateway-service** are sent to [Langfuse](https://langfuse.com) when configured. See [services/ai-gateway-service/docs/LANGFUSE.md](services/ai-gateway-service/docs/LANGFUSE.md).

@@ -1,6 +1,7 @@
 import { BaseLlm } from '@google/adk';
 import type { LlmRequest, LlmResponse } from '@google/adk';
 import { FinishReason } from '@google/genai';
+import { traceGeneration } from '../lib/langfuse.js';
 
 export class OpenAILLM extends BaseLlm {
   static readonly supportedModels = [
@@ -119,19 +120,31 @@ export class OpenAILLM extends BaseLlm {
       stream: stream || false,
     };
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
+    const callOpenAI = async () => {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
-    }
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
+      }
+      return response;
+    };
+
+    const response = await traceGeneration(
+      {
+        name: 'openai.chat-completions',
+        model: this.model,
+        input: { messages: messages.length, tools: tools?.length ?? 0, stream: Boolean(stream) },
+      },
+      callOpenAI
+    );
 
     if (stream) {
       const reader = response.body?.getReader();

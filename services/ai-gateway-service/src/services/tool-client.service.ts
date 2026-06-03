@@ -1,4 +1,5 @@
 import { getGatewayContext } from '../lib/request-context.js';
+import { traceToolCall } from '../lib/langfuse.js';
 import { logger } from '../utils/logger.js';
 
 const TOOL_URL =
@@ -7,6 +8,13 @@ const TOOL_URL =
 export type RemoteToolName = 'sql' | 'calculator' | 'knowledge_retrieval';
 
 export async function executeRemoteTool(
+  tool: RemoteToolName,
+  arguments_: Record<string, unknown>
+): Promise<unknown> {
+  return traceToolCall(tool, arguments_, () => executeRemoteToolInner(tool, arguments_));
+}
+
+async function executeRemoteToolInner(
   tool: RemoteToolName,
   arguments_: Record<string, unknown>
 ): Promise<unknown> {
