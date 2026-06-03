@@ -94,6 +94,29 @@ services:
       - app-network
     restart: unless-stopped
 
+  ai-gateway-service:
+    build: ./services/ai-gateway-service
+    container_name: ai_gateway_service
+    ports:
+      - "3004:3004"
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      tool-execution-service:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://app_user:app_pass@db:5432/app_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      TOOL_EXECUTION_SERVICE_URL: http://tool-execution-service:3003
+      KNOWLEDGE_SERVICE_URL: http://knowledge-service:3002
+    env_file:
+      - ./services/ai-gateway-service/.env
+    networks:
+      - app-network
+    restart: unless-stopped
+
 volumes:
   pgdata:
 

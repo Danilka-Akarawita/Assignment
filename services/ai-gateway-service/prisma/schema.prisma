@@ -1,0 +1,100 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum AgentRunStatus {
+  PENDING
+  PLANNING
+  EXECUTING
+  COMPLETED
+  FAILED
+}
+
+enum TodoStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+model Conversation {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  title     String?   @db.VarChar(500)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  messages  Message[]
+  agentRuns AgentRun[]
+
+  @@index([userId])
+  @@map("gateway_conversations")
+}
+
+model Message {
+  id             Int          @id @default(autoincrement())
+  conversationId Int          @map("conversation_id")
+  role           MessageRole
+  content        String       @db.Text
+  metadata       Json?
+  agentRunId     Int?         @map("agent_run_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  agentRun       AgentRun?    @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId])
+  @@map("gateway_messages")
+}
+
+model AgentRun {
+  id             Int            @id @default(autoincrement())
+  conversationId Int            @map("conversation_id")
+  userId         Int            @map("user_id")
+  status         AgentRunStatus @default(PENDING)
+  userQuery      String         @map("user_query") @db.Text
+  plan           Json?
+  executionLog   Json?          @map("execution_log")
+  finalResponse  String?        @map("final_response") @db.Text
+  errorMessage   String?        @map("error_message") @db.Text
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  conversation   Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  messages       Message[]
+  todos          AgentTodo[]
+
+  @@index([conversationId])
+  @@index([userId])
+  @@index([status])
+  @@map("gateway_agent_runs")
+}
+
+model AgentTodo {
+  id          Int        @id @default(autoincrement())
+  agentRunId  Int        @map("agent_run_id")
+  position    Int
+  title       String     @db.VarChar(500)
+  description String?    @db.Text
+  toolHint    String?    @map("tool_hint") @db.VarChar(64)
+  status      TodoStatus @default(PENDING)
+  result      Json?
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  agentRun    AgentRun   @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+
+  @@unique([agentRunId, position])
+  @@index([agentRunId])
+  @@map("gateway_agent_todos")
+}
