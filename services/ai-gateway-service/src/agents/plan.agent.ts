@@ -1,9 +1,11 @@
-import { LlmAgent } from '@google/adk';
-import { GPT_MODEL } from './config.js';
+import { LlmAgent,LLMRegistry } from '@google/adk';
+import { GPT_MODEL,GEMINI_MODEL } from './config.js';
+import { OpenAILLM } from './openai-llm.js';
 
+// LLMRegistry.register(OpenAILLM);
 export const planAgent = new LlmAgent({
   name: 'PlanAgent',
-  model: GPT_MODEL,
+  model: GEMINI_MODEL,
   description: 'Creates a multi-step plan and todo list for complex user requests.',
   instruction: `You are a planning agent for an AI assistant with access to:
 - knowledge_retrieval: search uploaded documents (invoices, PDFs, text)

@@ -1,9 +1,12 @@
-import { LlmAgent } from '@google/adk';
-import { GPT_MODEL } from './config.js';
+import { LlmAgent,LLMRegistry } from '@google/adk';
+import { GPT_MODEL,GEMINI_MODEL } from './config.js';
+import { OpenAILLM } from './openai-llm.js';
+
+// LLMRegistry.register(OpenAILLM);
 
 export const synthesisAgent = new LlmAgent({
   name: 'SynthesisAgent',
-  model: GPT_MODEL,
+  model: GEMINI_MODEL,
   description: 'Produces the final user-facing answer from plan and execution results.',
   instruction: `You are the final response agent.
 

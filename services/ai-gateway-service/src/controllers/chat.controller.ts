@@ -106,7 +106,12 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: err.message });
     }
     logger.error({ err }, 'Send message failed');
-    res.status(500).json({ error: 'Internal server error' });
+    // In development, expose the real error so it's easier to diagnose
+    const isDev = process.env.NODE_ENV !== 'production';
+    res.status(500).json({
+      error: 'Internal server error',
+      ...(isDev && err instanceof Error ? { detail: err.message, stack: err.stack } : {}),
+    });
   }
 };
 

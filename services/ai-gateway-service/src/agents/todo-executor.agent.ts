@@ -1,10 +1,13 @@
-import { LlmAgent } from '@google/adk';
-import { GPT_MODEL } from './config.js';
+import { LlmAgent,LLMRegistry } from '@google/adk';
+import { GPT_MODEL,GEMINI_MODEL } from './config.js';
 import { AGENT_TOOLS } from './tools/remote-tools.js';
+import { OpenAILLM } from './openai-llm.js';
+
+// LLMRegistry.register(OpenAILLM);
 
 export const todoExecutorAgent = new LlmAgent({
   name: 'TodoExecutorAgent',
-  model: GPT_MODEL,
+  model: GEMINI_MODEL,
   description: 'Executes each todo from the plan using remote tools.',
   instruction: `You execute the plan stored in session state as agent_plan.
 

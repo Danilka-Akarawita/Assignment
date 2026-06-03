@@ -118,6 +118,11 @@ export class ChatService {
 
     const previousSummary = conversation?.historySummary ?? '';
 
+    logger.info(
+      { conversationId: params.conversationId, previousSummary, recentHistory },
+      '[ChatService] Conversation context passed to agent'
+    );
+
     const { resolvedQuery, historySummary } = await this.orchestrator.resolveUserMessage({
       userId: params.userId,
       sessionId: `${sessionId}-rewrite`,

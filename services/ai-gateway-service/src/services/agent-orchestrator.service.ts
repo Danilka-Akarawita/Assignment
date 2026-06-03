@@ -3,7 +3,7 @@ import { createUserContent } from '@google/genai';
 import { agentWorkflow } from '../agents/workflow.agent.js';
 import { planAgent } from '../agents/plan.agent.js';
 import { synthesisAgent } from '../agents/synthesis.agent.js';
-import { ADK_APP_NAME, GPT_MODEL } from '../agents/config.js';
+import { ADK_APP_NAME, GPT_MODEL,GEMINI_MODEL } from '../agents/config.js';
 import { gatewayContext } from '../lib/request-context.js';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../utils/logger.js';
@@ -47,7 +47,7 @@ export class AgentOrchestratorService {
   private queryRewriterRunner = new InMemoryRunner({
     agent: new LlmAgent({
       name: 'QueryRewriterAgent',
-      model: GPT_MODEL,
+      model: GEMINI_MODEL,
       description:
         'Rewrites a user query into an explicit standalone request, using conversation history and summary.',
       instruction: `You are given a conversation summary and the last 10 user/assistant messages.

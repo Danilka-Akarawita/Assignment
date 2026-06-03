@@ -16,6 +16,7 @@ config({ override: false });
 
 const { default: app } = await import('../src/app.js');
 const { prisma } = await import('../src/lib/prisma.js');
+const { AgentOrchestratorService } = await import('../src/services/agent-orchestrator.service.js');
 
 const TEST_USER_ID = 9003;
 const accessToken = jwt.sign(
@@ -24,6 +25,28 @@ const accessToken = jwt.sign(
   { expiresIn: '1h' }
 );
 const authHeader = { Authorization: `Bearer ${accessToken}` };
+
+// Simulates the DB side-effects that the real AgentOrchestratorService.run() produces.
+// chat.service.ts reads plan + todos back from the DB, so mocks must persist them too.
+async function mockAgentRunInDb(
+  agentRunId: number,
+  plan: { goal: string; todos: Array<{ title: string }> }
+): Promise<void> {
+  await prisma.agentTodo.deleteMany({ where: { agentRunId } });
+  if (plan.todos.length > 0) {
+    await prisma.$transaction(
+      plan.todos.map((todo, index) =>
+        prisma.agentTodo.create({
+          data: { agentRunId, position: index + 1, title: todo.title, status: 'PENDING' },
+        })
+      )
+    );
+  }
+  await prisma.agentRun.update({
+    where: { id: agentRunId },
+    data: { status: 'COMPLETED', plan: plan as object },
+  });
+}
 
 before(async () => {
   try {
@@ -82,5 +105,190 @@ describe('ai-gateway-service', () => {
       .send({ content: '' });
 
     assert.equal(res.status, 400);
+  });
+
+  it('POST /conversations/:id/messages with query: refund policy', async () => {
+    const create = await request(app)
+      .post('/conversations')
+      .set(authHeader)
+      .send({ title: 'Customer Support' });
+
+    if (create.status !== 201) {
+      console.warn('Skipping — database not available');
+      return;
+    }
+
+    const conversationId = create.body.conversation.id;
+    const originalResolve = AgentOrchestratorService.prototype.resolveUserMessage;
+    const originalRun = AgentOrchestratorService.prototype.run;
+
+    AgentOrchestratorService.prototype.resolveUserMessage = async function () {
+      return { resolvedQuery: 'What is the refund policy for orders?', historySummary: 'User asking about refund policy' };
+    };
+    AgentOrchestratorService.prototype.run = async function (input) {
+      const plan = { goal: 'explain refund policy', todos: [{ title: 'Check policy details' }, { title: 'Provide timeline' }] };
+      await mockAgentRunInDb(input.agentRunId, plan);
+      return {
+        finalResponse: 'Our refund policy allows returns within 30 days of purchase. Items must be in original condition with all packaging. Refunds are processed within 5-7 business days.',
+        plan,
+        executionResults: { summary: 'Policy retrieved and formatted' },
+      };
+    };
+
+    try {
+      const res = await request(app)
+        .post(`/conversations/${conversationId}/messages`)
+        .set(authHeader)
+        .send({ content: 'What is your refund policy?' });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.status, 'completed');
+      assert.ok(res.body.assistantMessage?.content);
+      assert.match(res.body.assistantMessage.content, /refund|policy/i);
+      assert.equal(res.body.agentRun?.status, 'COMPLETED');
+      assert.ok(Array.isArray(res.body.agentRun?.todos));
+    } finally {
+      AgentOrchestratorService.prototype.resolveUserMessage = originalResolve;
+      AgentOrchestratorService.prototype.run = originalRun;
+    }
+  });
+
+  it('POST /conversations/:id/messages with query: order tracking', async () => {
+    const create = await request(app)
+      .post('/conversations')
+      .set(authHeader)
+      .send({ title: 'Order Status' });
+
+    if (create.status !== 201) {
+      console.warn('Skipping — database not available');
+      return;
+    }
+
+    const conversationId = create.body.conversation.id;
+    const originalResolve = AgentOrchestratorService.prototype.resolveUserMessage;
+    const originalRun = AgentOrchestratorService.prototype.run;
+
+    AgentOrchestratorService.prototype.resolveUserMessage = async function () {
+      return { resolvedQuery: 'How can I track my order status?', historySummary: 'User inquiring about order tracking' };
+    };
+    AgentOrchestratorService.prototype.run = async function (input) {
+      const plan = { goal: 'provide order tracking instructions', todos: [{ title: 'Identify tracking method' }, { title: 'Provide step-by-step guide' }] };
+      await mockAgentRunInDb(input.agentRunId, plan);
+      return {
+        finalResponse: 'You can track your order by logging into your account and viewing the Orders page. You will see real-time shipping updates and estimated delivery dates for each order.',
+        plan,
+        executionResults: { summary: 'Tracking information compiled' },
+      };
+    };
+
+    try {
+      const res = await request(app)
+        .post(`/conversations/${conversationId}/messages`)
+        .set(authHeader)
+        .send({ content: 'How do I track my order?' });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.status, 'completed');
+      assert.ok(res.body.assistantMessage?.content);
+      assert.match(res.body.assistantMessage.content, /track|order|shipping/i);
+      assert.equal(res.body.agentRun?.status, 'COMPLETED');
+      assert.ok(res.body.agentRun?.plan);
+    } finally {
+      AgentOrchestratorService.prototype.resolveUserMessage = originalResolve;
+      AgentOrchestratorService.prototype.run = originalRun;
+    }
+  });
+
+  it('POST /conversations/:id/messages with query: cancellation', async () => {
+    const create = await request(app)
+      .post('/conversations')
+      .set(authHeader)
+      .send({ title: 'Order Cancellation' });
+
+    if (create.status !== 201) {
+      console.warn('Skipping — database not available');
+      return;
+    }
+
+    const conversationId = create.body.conversation.id;
+    const originalResolve = AgentOrchestratorService.prototype.resolveUserMessage;
+    const originalRun = AgentOrchestratorService.prototype.run;
+
+    AgentOrchestratorService.prototype.resolveUserMessage = async function () {
+      return { resolvedQuery: 'Can I cancel my pending order?', historySummary: 'User wants to cancel order' };
+    };
+    AgentOrchestratorService.prototype.run = async function (input) {
+      const plan = { goal: 'explain cancellation policy', todos: [{ title: 'Check cancellation window' }, { title: 'Provide contact info if needed' }] };
+      await mockAgentRunInDb(input.agentRunId, plan);
+      return {
+        finalResponse: 'Orders can be cancelled within 2 hours of placement if they have not yet been processed by our fulfillment center. After that window, please contact our support team for assistance with cancellations.',
+        plan,
+        executionResults: { summary: 'Cancellation policy provided' },
+      };
+    };
+
+    try {
+      const res = await request(app)
+        .post(`/conversations/${conversationId}/messages`)
+        .set(authHeader)
+        .send({ content: 'Can I cancel my order?' });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.status, 'completed');
+      assert.ok(res.body.assistantMessage?.content);
+      assert.match(res.body.assistantMessage.content, /cancel|2 hours/i);
+      assert.equal(res.body.agentRun?.status, 'COMPLETED');
+      assert.ok(Array.isArray(res.body.agentRun?.todos));
+      assert.ok(res.body.agentRun!.todos!.length > 0);
+    } finally {
+      AgentOrchestratorService.prototype.resolveUserMessage = originalResolve;
+      AgentOrchestratorService.prototype.run = originalRun;
+    }
+  });
+
+  it('POST /conversations/:id/messages with query: payment methods', async () => {
+    const create = await request(app)
+      .post('/conversations')
+      .set(authHeader)
+      .send({ title: 'Payment Info' });
+
+    if (create.status !== 201) {
+      console.warn('Skipping — database not available');
+      return;
+    }
+
+    const conversationId = create.body.conversation.id;
+    const originalResolve = AgentOrchestratorService.prototype.resolveUserMessage;
+    const originalRun = AgentOrchestratorService.prototype.run;
+
+    AgentOrchestratorService.prototype.resolveUserMessage = async function () {
+      return { resolvedQuery: 'What payment methods are accepted?', historySummary: 'User asking about payment options' };
+    };
+    AgentOrchestratorService.prototype.run = async function (input) {
+      const plan = { goal: 'list accepted payment methods', todos: [{ title: 'Compile payment methods' }, { title: 'Highlight security' }] };
+      await mockAgentRunInDb(input.agentRunId, plan);
+      return {
+        finalResponse: 'We accept all major credit cards (Visa, MasterCard, American Express), PayPal, Apple Pay, Google Pay, and bank transfers. All payments are processed securely with SSL encryption.',
+        plan,
+        executionResults: { summary: 'Payment information retrieved' },
+      };
+    };
+
+    try {
+      const res = await request(app)
+        .post(`/conversations/${conversationId}/messages`)
+        .set(authHeader)
+        .send({ content: 'What payment methods do you accept?' });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.status, 'completed');
+      assert.ok(res.body.assistantMessage?.content);
+      assert.match(res.body.assistantMessage.content, /credit|payment|PayPal/i);
+      assert.equal(res.body.agentRun?.status, 'COMPLETED');
+      assert.ok(res.body.agentRun?.plan);
+    } finally {
+      AgentOrchestratorService.prototype.resolveUserMessage = originalResolve;
+      AgentOrchestratorService.prototype.run = originalRun;
+    }
   });
 });
