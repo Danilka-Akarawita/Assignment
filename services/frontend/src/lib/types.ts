@@ -27,6 +27,20 @@ export interface Message {
   metadata?: unknown;
   agentRunId?: number | null;
   createdAt: string;
+  userFeedback?: 'UP' | 'DOWN' | null;
+}
+
+export interface MessageFeedbackRecord {
+  id: number;
+  userId: number;
+  conversationId: number;
+  userMessageId: number;
+  assistantMessageId: number;
+  userQuery: string;
+  assistantAnswer: string;
+  rating: 'UP' | 'DOWN';
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AgentTodo {

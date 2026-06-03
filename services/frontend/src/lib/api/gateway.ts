@@ -3,6 +3,7 @@ import type {
   AgentRun,
   Conversation,
   ConversationDetail,
+  MessageFeedbackRecord,
   SendMessageResult,
 } from '@/lib/types';
 import { apiFetch } from './http';
@@ -61,4 +62,42 @@ export async function getAgentRun(
   runId: number
 ): Promise<{ agentRun: AgentRun }> {
   return apiFetch(`${base}/conversations/agent-runs/${runId}`, { accessToken });
+}
+
+export async function submitMessageFeedback(
+  accessToken: string,
+  body: {
+    conversationId: number;
+    assistantMessageId: number;
+    rating: 'up' | 'down';
+  }
+): Promise<{
+  feedback: {
+    id: number;
+    assistantMessageId: number;
+    rating: 'UP' | 'DOWN';
+    createdAt: string;
+  };
+}> {
+  return apiFetch(`${base}/feedback`, {
+    method: 'POST',
+    accessToken,
+    body: JSON.stringify(body),
+  });
+}
+
+export async function listMessageFeedback(
+  accessToken: string,
+  params?: { limit?: number; offset?: number }
+): Promise<{
+  feedback: MessageFeedbackRecord[];
+  total: number;
+  limit: number;
+  offset: number;
+}> {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set('limit', String(params.limit));
+  if (params?.offset != null) qs.set('offset', String(params.offset));
+  const query = qs.toString();
+  return apiFetch(`${base}/feedback${query ? `?${query}` : ''}`, { accessToken });
 }

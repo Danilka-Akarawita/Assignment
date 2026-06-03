@@ -18,6 +18,7 @@ export function ChatPanel({ conversationId }: { conversationId: number }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
+  const [feedbackMessageId, setFeedbackMessageId] = useState<number | null>(null);
   const {
     isSending,
     agentRun,
@@ -48,6 +49,28 @@ export function ChatPanel({ conversationId }: { conversationId: number }) {
     loadMessages();
     clearStream();
   }, [loadMessages, clearStream]);
+
+  const handleFeedback = async (assistantMessageId: number, rating: 'up' | 'down') => {
+    if (!accessToken) return;
+    setFeedbackMessageId(assistantMessageId);
+    try {
+      const { feedback } = await gatewayApi.submitMessageFeedback(accessToken, {
+        conversationId,
+        assistantMessageId,
+        rating,
+      });
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantMessageId ? { ...m, userFeedback: feedback.rating } : m
+        )
+      );
+      toast.success('Thanks for your feedback');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save feedback');
+    } finally {
+      setFeedbackMessageId(null);
+    }
+  };
 
   const handleSend = async () => {
     const text = input.trim();
@@ -98,6 +121,12 @@ export function ChatPanel({ conversationId }: { conversationId: number }) {
                       isStreamingAssistant ? streamingContent : undefined
                     }
                     streamEnabled={isStreamingAssistant}
+                    onFeedback={
+                      m.role === 'ASSISTANT' && m.id > 0
+                        ? (rating) => void handleFeedback(m.id, rating)
+                        : undefined
+                    }
+                    feedbackSubmitting={feedbackMessageId === m.id}
                   />
                 );
               })}

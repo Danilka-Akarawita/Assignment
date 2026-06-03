@@ -15,6 +15,7 @@ import {
   LogOut,
   MessageSquarePlus,
   MessagesSquare,
+  Table2,
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -119,6 +120,18 @@ export function AppSidebar() {
           <FileText className="size-4" />
           Knowledge
         </Link>
+        {user?.role === 'admin' && (
+          <Link
+            href="/admin/feedback"
+            className={cn(
+              'hover:bg-muted flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm',
+              pathname === '/admin/feedback' && 'bg-muted'
+            )}
+          >
+            <Table2 className="size-4" />
+            Feedback
+          </Link>
+        )}
         <Button
           variant="ghost"
           className="w-full justify-start gap-2 text-muted-foreground"

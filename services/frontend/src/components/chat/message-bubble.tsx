@@ -1,5 +1,6 @@
 'use client';
 
+import { MessageFeedback } from '@/components/chat/message-feedback';
 import { MarkdownContent } from '@/components/markdown/markdown-content';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/lib/types';
@@ -9,10 +10,14 @@ export function MessageBubble({
   message,
   streamContent,
   streamEnabled,
+  onFeedback,
+  feedbackSubmitting,
 }: {
   message: Message;
   streamContent?: string;
   streamEnabled?: boolean;
+  onFeedback?: (rating: 'up' | 'down') => void;
+  feedbackSubmitting?: boolean;
 }) {
   const isUser = message.role === 'USER';
   const fullText =
@@ -42,6 +47,13 @@ export function MessageBubble({
             <MarkdownContent content={displayed || '…'} />
             {isStreaming && (
               <span className="bg-foreground/70 ml-0.5 inline-block h-4 w-1.5 animate-pulse" />
+            )}
+            {!isStreaming && message.id > 0 && onFeedback && (
+              <MessageFeedback
+                rating={message.userFeedback ?? null}
+                disabled={feedbackSubmitting}
+                onRate={onFeedback}
+              />
             )}
           </>
         )}
