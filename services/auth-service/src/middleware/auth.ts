@@ -1,6 +1,6 @@
 import type {NextFunction, Request, Response } from 'express';
 
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 
 export interface AuthRequest {
   user?: { id: number; email: string; role: string };

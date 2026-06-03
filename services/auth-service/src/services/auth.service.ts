@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import type { JwtPayload, Secret, SignOptions } from 'jsonwebtoken';
 import { prisma } from '../lib/prisma.js';
 import { publishEvent } from '../lib/rabbitmq.publisher.js';
