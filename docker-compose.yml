@@ -94,6 +94,23 @@ services:
       - app-network
     restart: unless-stopped
 
+  frontend:
+    build: ./services/frontend
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - ai-gateway-service
+      - knowledge-service
+    environment:
+      NEXT_PUBLIC_AUTH_API_URL: http://localhost:3001
+      NEXT_PUBLIC_GATEWAY_API_URL: http://localhost:3004
+      NEXT_PUBLIC_KNOWLEDGE_API_URL: http://localhost:3002
+    networks:
+      - app-network
+    restart: unless-stopped
+
   ai-gateway-service:
     build: ./services/ai-gateway-service
     container_name: ai_gateway_service
