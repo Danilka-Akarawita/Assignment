@@ -3,34 +3,48 @@ import { GPT_MODEL,GEMINI_MODEL } from './config.js';
 import { OpenAILLM } from './openai-llm.js';
 
 // LLMRegistry.register(OpenAILLM);
+
 export const planAgent = new LlmAgent({
   name: 'PlanAgent',
   model: GEMINI_MODEL,
   description: 'Creates a multi-step plan and todo list for complex user requests.',
-  instruction: `You are a planning agent for an AI assistant with access to:
-- knowledge_retrieval: search uploaded documents (invoices, PDFs, text)
-- sql_query: read-only SQL on app database (knowledge tables require user_id filter)
-- calculator: math expressions
+  instruction: `
+You are a planning agent.
 
-The user id for SQL is available in session state as user_id.
+Available tools:
+- knowledge_retrieval: search uploaded documents
+- sql_query: query application database
+- calculator: perform calculations
 
-For the user request, produce a JSON plan ONLY (no markdown fences) with this shape:
+The user id is available as:
+{user_id}
+
+Create an execution plan for the user's request.
+
+Output ONLY valid JSON in this format:
+
 {
   "goal": "one sentence goal",
   "todos": [
     {
-      "title": "short step title",
-      "description": "what to do and which tool to use",
-      "toolHint": "knowledge_retrieval" | "sql_query" | "calculator" | "none"
+      "position": 1,
+      "title": "short title",
+      "description": "detailed step description",
+      "toolHint": "knowledge_retrieval"
     }
   ]
 }
 
 Rules:
-- Break complex tasks into 3-7 ordered todos.
-- Example "Summarize invoices and total April expenses": retrieve invoice docs -> extract amounts -> SQL or calculator aggregate -> synthesize.
-- Prefer knowledge_retrieval before SQL when documents may contain the answer.
-- Do NOT execute tools; only plan.
-- Output valid JSON only.`,
+- Create 1-7 ordered todos.
+- Use toolHint values:
+  - knowledge_retrieval
+  - sql_query
+  - calculator
+  - none
+- Do not execute any tool.
+- Do not explain the plan.
+- Output JSON only.
+`,
   outputKey: 'agent_plan',
 });

@@ -1,36 +1,52 @@
-import { LlmAgent,LLMRegistry } from '@google/adk';
-import { GPT_MODEL,GEMINI_MODEL } from './config.js';
+import { LlmAgent } from '@google/adk';
+import { GEMINI_MODEL } from './config.js';
 import { AGENT_TOOLS } from './tools/remote-tools.js';
-import { OpenAILLM } from './openai-llm.js';
-
-// LLMRegistry.register(OpenAILLM);
 
 export const todoExecutorAgent = new LlmAgent({
   name: 'TodoExecutorAgent',
   model: GEMINI_MODEL,
-  description: 'Executes each todo from the plan using remote tools.',
-  instruction: `You execute the plan stored in session state as agent_plan.
+  description: 'Executes todos from the generated plan.',
+  tools: AGENT_TOOLS,
+  instruction: `
+You are an execution agent.
 
-Plan JSON:
+Plan:
 {agent_plan}
 
-User id for SQL filters: {user_id}
+User ID:
+{user_id}
 
 Instructions:
-1. Parse the plan todos in order.
-2. For each todo, call update_todo_status(position, "in_progress") before starting.
-3. Use the appropriate tool (knowledge_retrieval, sql_query, calculator) based on toolHint and description.
-4. After each todo, call update_todo_status(position, "completed", resultSummary) or "failed" with reason.
-5. Pass structured findings forward; later steps may use earlier results.
-6. For invoice/expense tasks: retrieve relevant chunks first, extract line items and dates, then aggregate with calculator or SQL.
-7. When all todos are done, output a JSON summary of execution:
+
+1. Read the todos from agent_plan.
+2. Execute them in order.
+3. Select the appropriate tool based on toolHint.
+4. Reuse findings from earlier steps when helpful.
+5. For document analysis:
+   - Retrieve documents first.
+   - Extract relevant facts.
+   - Perform calculations if needed.
+6. For database analysis:
+   - Use sql_query.
+   - Always apply user_id filtering when querying user-owned data.
+7. For calculations:
+   - Use calculator instead of mental math.
+
+Output ONLY valid JSON:
+
 {
-  "completedTodos": number,
-  "findings": ["bullet findings"],
-  "structuredData": { "optional key figures" }
+  "completedTodos": 0,
+  "failedTodos": 0,
+  "findings": [
+    "finding 1",
+    "finding 2"
+  ],
+  "structuredData": {}
 }
 
-Do not write the final user-facing answer; only execute and summarize results.`,
-  tools: AGENT_TOOLS,
+Do not write a user-facing response.
+Do not output markdown.
+Output JSON only.
+`,
   outputKey: 'execution_results',
 });
