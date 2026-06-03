@@ -9,15 +9,32 @@ datasource db {
   provider = "postgresql"
 }
 
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 model Document {
   id            Int             @id @default(autoincrement())
   userId        Int             @map("user_id")
   filename      String
   fileSizeBytes Int?            @map("file_size_bytes")
   mimeType      String?         @map("mime_type")
+  title         String?
+  summary       String?         @db.Text
+  tags          String[]        @default([])
+  status        DocumentStatus  @default(PENDING)
+  errorMessage  String?         @map("error_message") @db.Text
+  sourceText    String?         @map("source_text") @db.Text
+  chunkCount    Int             @default(0) @map("chunk_count")
   createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
   chunks        DocumentChunk[]
 
+  @@index([userId])
+  @@index([status])
   @@map("knowledge_documents")
 }
 
@@ -25,10 +42,12 @@ model DocumentChunk {
   id          Int      @id @default(autoincrement())
   documentId  Int      @map("document_id")
   chunkIndex  Int      @map("chunk_index")
-  chunkText   String   @map("chunk_text")
+  chunkText   String   @map("chunk_text") @db.Text
+  metadata    Json?    @db.JsonB
   embedding   Unsupported("vector")?
   createdAt   DateTime @default(now()) @map("created_at")
   document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
+  @@unique([documentId, chunkIndex])
   @@map("knowledge_document_chunks")
 }
