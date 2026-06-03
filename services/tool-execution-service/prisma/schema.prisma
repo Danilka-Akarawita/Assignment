@@ -1,0 +1,27 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ToolExecution {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  toolName   String   @map("tool_name") @db.VarChar(64)
+  input      Json
+  output     Json?
+  success    Boolean
+  error      String?  @db.Text
+  durationMs Int      @map("duration_ms")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([toolName])
+  @@index([createdAt])
+  @@map("tool_executions")
+}

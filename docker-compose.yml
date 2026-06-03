@@ -75,6 +75,25 @@ services:
       - app-network
     restart: unless-stopped
 
+  tool-execution-service:
+    build: ./services/tool-execution-service
+    container_name: tool_execution_service
+    ports:
+      - "3003:3003"
+    depends_on:
+      db:
+        condition: service_healthy
+      knowledge-service:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://app_user:app_pass@db:5432/app_db
+      KNOWLEDGE_SERVICE_URL: http://knowledge-service:3002
+    env_file:
+      - ./services/tool-execution-service/.env
+    networks:
+      - app-network
+    restart: unless-stopped
+
 volumes:
   pgdata:
 
