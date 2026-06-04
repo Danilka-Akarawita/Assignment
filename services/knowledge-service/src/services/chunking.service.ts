@@ -5,55 +5,98 @@ export interface TextChunk {
   text: string;
 }
 
-const DEFAULT_CHUNK_SIZE = parseInt(process.env.CHUNK_SIZE ?? '1000', 10);
-const DEFAULT_CHUNK_OVERLAP = parseInt(process.env.CHUNK_OVERLAP ?? '200', 10);
+/** When a single paragraph exceeds this length, split it at sentence boundaries. */
+const DEFAULT_MAX_PARAGRAPH_CHARS = parseInt(
+  process.env.CHUNK_MAX_PARAGRAPH_CHARS ?? '4000',
+  10,
+);
 
 export class ChunkingService {
-  chunk(text: string, chunkSize = DEFAULT_CHUNK_SIZE, overlap = DEFAULT_CHUNK_OVERLAP): TextChunk[] {
+  /**
+   * Split text into one chunk per paragraph (blank-line separated blocks).
+   * Oversized paragraphs are sub-split at sentence boundaries — not fixed-size windows.
+   */
+  chunk(text: string, maxParagraphChars = DEFAULT_MAX_PARAGRAPH_CHARS): TextChunk[] {
     const normalized = text.replace(/\r\n/g, '\n').trim();
     if (!normalized) return [];
 
+    const paragraphs = this.splitParagraphs(normalized);
     const chunks: TextChunk[] = [];
-    let start = 0;
     let index = 0;
 
-    while (start < normalized.length) {
-      let end = Math.min(start + chunkSize, normalized.length);
+    for (const paragraph of paragraphs) {
+      const pieces =
+        paragraph.length <= maxParagraphChars
+          ? [paragraph]
+          : this.splitOversizedParagraph(paragraph, maxParagraphChars);
 
-      if (end < normalized.length) {
-        const slice = normalized.slice(start, end);
-        const breakAt = this.findBreakPoint(slice);
-        if (breakAt > chunkSize * 0.5) {
-          end = start + breakAt;
+      for (const piece of pieces) {
+        const chunkText = piece.trim();
+        if (chunkText.length > 0) {
+          chunks.push({ index, text: chunkText });
+          index++;
         }
       }
-
-      const chunkText = normalized.slice(start, end).trim();
-      if (chunkText.length > 0) {
-        chunks.push({ index, text: chunkText });
-        index++;
-      }
-
-      if (end >= normalized.length) break;
-      start = Math.max(end - overlap, start + 1);
     }
 
     logger.debug(
-      { chunkCount: chunks.length, chunkSize, overlap, textLength: normalized.length },
-      'Text chunked'
+      {
+        chunkCount: chunks.length,
+        paragraphCount: paragraphs.length,
+        maxParagraphChars,
+        textLength: normalized.length,
+        strategy: 'paragraph',
+      },
+      'Text chunked',
     );
 
     return chunks;
   }
 
-  private findBreakPoint(slice: string): number {
-    const priorities = ['\n\n', '\n', '. ', '? ', '! ', '; ', ', ', ' '];
-    for (const delimiter of priorities) {
-      const pos = slice.lastIndexOf(delimiter);
-      if (pos !== -1) {
-        return pos + delimiter.length;
-      }
+  /** Blank-line blocks; falls back to single-newline lines when no blank lines exist. */
+  private splitParagraphs(text: string): string[] {
+    const blocks = text
+      .split(/\n\s*\n+/)
+      .map((block) => block.trim())
+      .filter(Boolean);
+
+    if (blocks.length > 1) return blocks;
+
+    const single = blocks[0] ?? text.trim();
+    if (!single) return [];
+
+    const lines = single
+      .split(/\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    return lines.length > 1 ? lines : [single];
+  }
+
+  private splitOversizedParagraph(text: string, maxChars: number): string[] {
+    const pieces: string[] = [];
+    let remaining = text.trim();
+
+    while (remaining.length > maxChars) {
+      const slice = remaining.slice(0, maxChars);
+      const breakAt = this.findSentenceBreak(slice);
+      const cut = breakAt > maxChars * 0.4 ? breakAt : maxChars;
+      const piece = remaining.slice(0, cut).trim();
+      if (piece) pieces.push(piece);
+      remaining = remaining.slice(cut).trim();
     }
-    return slice.length;
+
+    if (remaining) pieces.push(remaining);
+    return pieces;
+  }
+
+  private findSentenceBreak(slice: string): number {
+    const delimiters = ['. ', '? ', '! ', '.\n', '?\n', '!\n', '; ', '\n'];
+    for (const delimiter of delimiters) {
+      const pos = slice.lastIndexOf(delimiter);
+      if (pos !== -1) return pos + delimiter.length;
+    }
+    const space = slice.lastIndexOf(' ');
+    return space !== -1 ? space + 1 : slice.length;
   }
 }
