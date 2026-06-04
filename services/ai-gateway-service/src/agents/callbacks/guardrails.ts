@@ -10,15 +10,11 @@ import { recordAgentStepOutput } from '../../lib/langfuse.js';
 import {
   buildGuardrailBlockedAnswerText,
   buildGuardrailLowConfidenceAppend,
-  GUARDRAIL_DANGEROUS_TOOL_MESSAGE,
   GUARDRAIL_EMPTY_INPUT_MESSAGE,
   GUARDRAIL_MESSAGE_TOO_LONG_MESSAGE,
 } from '../../prompts/index.js';
 import { parseAgentJson, type SynthesisOutput } from '../../types/agent-plan.js';
 import { judgeFinalAnswer, shouldBlockFailedAnswers } from './answer-judge.js';
-
-const BLOCKED_SQL =
-  /\b(DROP|DELETE|INSERT|UPDATE|ALTER|TRUNCATE|CREATE|GRANT|REVOKE)\b/i;
 
 function contentToText(content?: Content): string {
   if (!content?.parts?.length) return '';
@@ -66,13 +62,12 @@ export const beforeToolGuard: SingleBeforeToolCallback = async ({ tool, args, co
   );
 
   if (toolName === 'sql_query' || toolName === 'sql') {
-    const query = typeof args.query === 'string' ? args.query : '';
-    if (!query.trim()) {
-      return { error: 'SQL query is required', blocked: true };
+    const question = typeof args.question === 'string' ? args.question : '';
+    if (!question.trim()) {
+      return { error: 'A natural language question is required', blocked: true };
     }
-    if (BLOCKED_SQL.test(query)) {
-      logger.warn({ query: query.slice(0, 120) }, 'Guardrail: blocked SQL');
-      return { error: GUARDRAIL_DANGEROUS_TOOL_MESSAGE, blocked: true };
+    if (question.length > 4000) {
+      return { error: 'SQL question is too long', blocked: true };
     }
   }
 

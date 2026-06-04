@@ -90,36 +90,35 @@ describe('tool-execution-service', () => {
     assert.equal(res.body.success, false);
   });
 
-  it('POST /tools/execute sql rejects write queries', async () => {
+  it('POST /tools/execute sql requires question', async () => {
     const res = await request(app)
       .post('/tools/execute')
       .set(authHeader)
       .send({
         tool: 'sql',
-        arguments: { query: 'DELETE FROM knowledge_documents' },
+        arguments: {},
       });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.success, false);
   });
 
-  it('POST /tools/execute sql runs read query', async () => {
+  it('POST /tools/execute sql without OPENAI_API_KEY returns error', async () => {
+    const prev = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+
     const res = await request(app)
       .post('/tools/execute')
       .set(authHeader)
       .send({
         tool: 'sql',
-        arguments: { query: 'SELECT 1 AS value' },
+        arguments: { question: 'return the number 1 as column value' },
       });
 
-    if (res.status === 500) {
-      console.warn('Skipping SQL test — database not available');
-      return;
-    }
+    if (prev) process.env.OPENAI_API_KEY = prev;
 
-    assert.equal(res.status, 200);
-    assert.equal(res.body.success, true);
-    assert.equal(res.body.result.rows[0].value, 1);
+    assert.equal(res.status, 400);
+    assert.equal(res.body.success, false);
+    assert.match(res.body.error ?? '', /OPENAI_API_KEY/i);
   });
 
   it('GET /tools/sql/schema includes pgvector hints', async () => {

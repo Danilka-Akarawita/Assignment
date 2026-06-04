@@ -5,7 +5,7 @@ export const calculatorInputSchema = z.object({
 });
 
 export const sqlInputSchema = z.object({
-  query: z.string().min(1).max(10000),
+  question: z.string().min(1).max(4000),
 });
 
 export const knowledgeRetrievalInputSchema = z.object({

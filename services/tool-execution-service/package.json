@@ -8,13 +8,15 @@
     "prebuild": "prisma generate",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "test": "tsx --test tests/tools.test.ts"
+    "test": "tsx --test tests/tools.test.ts tests/sql-validator.test.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.0",
     "@prisma/adapter-pg": "^7.8.0",
+    "ai": "^5.0.0",
     "@prisma/client": "^7.8.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

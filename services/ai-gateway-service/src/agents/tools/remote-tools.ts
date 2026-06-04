@@ -33,7 +33,11 @@ export const knowledgeRetrievalTool = new FunctionTool({
 });
 
 const sqlParams = z.object({
-  query: z.string().describe('Read-only SELECT or WITH query'),
+  question: z
+    .string()
+    .describe(
+      'Clear natural language data question, e.g. count completed knowledge documents for this user',
+    ),
 });
 
 export const sqlQueryTool = new FunctionTool({
@@ -41,8 +45,8 @@ export const sqlQueryTool = new FunctionTool({
   description: SQL_QUERY_TOOL_DESCRIPTION,
   parameters: sqlParams as never,
   execute: async (input: unknown) => {
-    const { query } = sqlParams.parse(input);
-    return executeRemoteTool('sql', { query });
+    const { question } = sqlParams.parse(input);
+    return executeRemoteTool('sql', { question });
   },
 });
 

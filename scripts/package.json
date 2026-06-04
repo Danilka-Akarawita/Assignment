@@ -1,0 +1,19 @@
+{
+  "name": "ai-assistant-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "seed": "tsx seed-demo-data.ts"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.4.2",
+    "pg": "^8.21.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/node": "^25.9.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}

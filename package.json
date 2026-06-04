@@ -1,0 +1,16 @@
+{
+  "name": "ai-assistant",
+  "private": true,
+  "description": "AI Assistant monorepo — run all services locally",
+  "scripts": {
+    "infra": "docker compose up -d db rabbitmq redis",
+    "build:all": "npm run build --prefix services/auth-service && npm run build --prefix services/knowledge-service && npm run build --prefix services/tool-execution-service && npm run build --prefix services/ai-gateway-service",
+    "start:services": "concurrently -k -n auth,knowledge,tools,gateway,web -c blue,green,yellow,magenta,cyan \"npm start --prefix services/auth-service\" \"npm start --prefix services/knowledge-service\" \"npm start --prefix services/tool-execution-service\" \"npm start --prefix services/ai-gateway-service\" \"npm run dev --prefix services/frontend\"",
+    "start": "npm run infra && wait-on tcp:localhost:5432 tcp:localhost:5672 -t 120000 && npm run start:services",
+    "dev": "npm run build:all && npm run start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "wait-on": "^8.0.5"
+  }
+}

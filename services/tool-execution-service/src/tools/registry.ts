@@ -2,7 +2,7 @@ import {
   CALCULATOR_EXPRESSION_PARAM_DESCRIPTION,
   CALCULATOR_TOOL_DESCRIPTION,
   KNOWLEDGE_RETRIEVAL_TOOL_DESCRIPTION,
-  SQL_QUERY_PARAM_DESCRIPTION,
+  SQL_QUESTION_PARAM_DESCRIPTION,
   SQL_TOOL_DESCRIPTION,
 } from '../prompts/index.js';
 import type { ToolDefinition } from '../types/tools.js';
@@ -13,9 +13,12 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description: SQL_TOOL_DESCRIPTION,
     inputSchema: {
       type: 'object',
-      required: ['query'],
+      required: ['question'],
       properties: {
-        query: { type: 'string', description: SQL_QUERY_PARAM_DESCRIPTION },
+        question: {
+          type: 'string',
+          description: SQL_QUESTION_PARAM_DESCRIPTION,
+        },
       },
     },
   },

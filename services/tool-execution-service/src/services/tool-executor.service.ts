@@ -5,6 +5,7 @@ import { CalculatorError, CalculatorService } from './calculator.service.js';
 import { KnowledgeRetrievalService } from './knowledge-retrieval.service.js';
 import { SqlService } from './sql.service.js';
 import { SqlValidationError } from './sql-validator.js';
+import { SqlGeneratorError } from './sql-generator.service.js';
 import { KnowledgeClientError } from '../lib/knowledge-client.js';
 
 export class ToolExecutorService {
@@ -31,7 +32,10 @@ export class ToolExecutorService {
         case 'sql':
           result = {
             success: true,
-            data: await this.sql.execute(input.arguments.query, ctx.userId),
+            data: await this.sql.queryFromQuestion(
+              input.arguments.question,
+              ctx.userId,
+            ),
           };
           break;
         case 'knowledge_retrieval':
@@ -72,6 +76,7 @@ export class ToolExecutorService {
 
   private formatError(err: unknown): string {
     if (err instanceof SqlValidationError) return err.message;
+    if (err instanceof SqlGeneratorError) return err.message;
     if (err instanceof CalculatorError) return err.message;
     if (err instanceof KnowledgeClientError) return err.message;
     if (err instanceof Error) return err.message;

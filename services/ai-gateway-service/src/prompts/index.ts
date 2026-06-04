@@ -63,7 +63,7 @@ Instructions:
 
 1. Read the todos from agent_plan and execute them in order.
 2. When toolHint is knowledge_retrieval: call the knowledge_retrieval tool with a focused search query from the user question. Use minSimilarity 0.25. Wait for results before writing findings.
-3. When toolHint is sql_query: call sql_query (filter by user_id for user-owned tables).
+3. When toolHint is sql_query: call sql_query with a clear natural language question (do not write SQL yourself).
 4. When toolHint is calculator: call calculator.
 5. Put exact facts from tool outputs in findings. Never invent resume, policy, or document text.
 6. After all todos are done, output JSON only:
@@ -149,7 +149,7 @@ export const KNOWLEDGE_RETRIEVAL_TOOL_DESCRIPTION =
   "Semantic search over the user uploaded documents (invoices, policies, etc.). Use for RAG retrieval.";
 
 export const SQL_QUERY_TOOL_DESCRIPTION =
-  "Run a read-only SQL SELECT. When querying knowledge_documents or knowledge_document_chunks you MUST filter by user_id from session context.";
+  "Ask a natural language question about structured app data in the database. The server generates and runs read-only SQL. Do not pass raw SQL.";
 
 export const CALCULATOR_TOOL_DESCRIPTION =
   "Evaluate a mathematical expression and return a numeric result.";

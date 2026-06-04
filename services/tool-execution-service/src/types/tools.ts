@@ -22,6 +22,10 @@ export interface SqlQueryResult {
   rows: Record<string, unknown>[];
   rowCount: number;
   truncated: boolean;
+  /** Natural language input passed to the SQL generator. */
+  question?: string;
+  /** SQL produced by the generator (after validation, before optional LIMIT append). */
+  generatedQuery?: string;
 }
 
 export interface SchemaColumn {

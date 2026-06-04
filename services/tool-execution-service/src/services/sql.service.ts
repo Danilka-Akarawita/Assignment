@@ -6,6 +6,10 @@ import {
   SqlValidationError,
   validateReadOnlySql,
 } from "./sql-validator.js";
+import {
+  SqlGeneratorError,
+  SqlGeneratorService,
+} from "./sql-generator.service.js";
 
 const STATEMENT_TIMEOUT_MS = parseInt(
   process.env.SQL_STATEMENT_TIMEOUT_MS ?? "5000",
@@ -17,7 +21,62 @@ const ALLOWED_SCHEMAS = (process.env.SQL_ALLOWED_SCHEMAS ?? "public")
   .map((schema: string) => schema.trim())
   .filter(Boolean);
 
+const SQL_GENERATOR_MAX_RETRIES = parseInt(
+  process.env.SQL_GENERATOR_MAX_RETRIES ?? "1",
+  10,
+);
+
 export class SqlService {
+  private generator = new SqlGeneratorService();
+
+  /**
+   * Natural language → OpenAI SQL generation → validate → execute.
+   */
+  async queryFromQuestion(
+    question: string,
+    userId: number,
+  ): Promise<SqlQueryResult> {
+    const catalog = await this.getSchemaCatalog();
+    let generatedQuery = await this.generator.generateQuery(
+      question,
+      userId,
+      catalog,
+    );
+
+    let lastError: Error | undefined;
+    const attempts = Math.max(0, SQL_GENERATOR_MAX_RETRIES) + 1;
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        const result = await this.execute(generatedQuery, userId);
+        return {
+          ...result,
+          question,
+          generatedQuery,
+        };
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        const canRetry =
+          attempt < attempts - 1 &&
+          (err instanceof SqlValidationError ||
+            err instanceof SqlGeneratorError ||
+            err instanceof Error);
+
+        if (!canRetry) break;
+
+        generatedQuery = await this.generator.generateQueryWithRepair(
+          question,
+          userId,
+          catalog,
+          generatedQuery,
+          lastError.message,
+        );
+      }
+    }
+
+    throw lastError ?? new SqlGeneratorError("SQL generation failed");
+  }
+
   async execute(query: string, userId: number): Promise<SqlQueryResult> {
     let safeQuery: string;
     try {

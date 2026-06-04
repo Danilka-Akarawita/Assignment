@@ -1,3 +1,4 @@
+import { setConsumerRestartHandler } from '../lib/rabbitmq.js';
 import { startConsumer } from '../lib/rabbitmq.consumer.js';
 import {
   CHAT_EXCHANGE,
@@ -23,7 +24,7 @@ function isChatJobMessage(value: unknown): value is ChatJobMessage {
   );
 }
 
-export async function startAgentJobConsumer(): Promise<void> {
+async function bindAgentJobConsumer(): Promise<void> {
   await startConsumer(GATEWAY_AGENT_QUEUE, CHAT_REQUESTED_KEY, CHAT_EXCHANGE, async (raw) => {
     if (!isChatJobMessage(raw)) {
       logger.warn({ raw }, 'Invalid chat job message');
@@ -41,4 +42,9 @@ export async function startAgentJobConsumer(): Promise<void> {
       content: raw.content,
     });
   });
+}
+
+export async function startAgentJobConsumer(): Promise<void> {
+  setConsumerRestartHandler(bindAgentJobConsumer);
+  await bindAgentJobConsumer();
 }
