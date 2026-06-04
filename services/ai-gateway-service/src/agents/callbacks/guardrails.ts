@@ -8,10 +8,13 @@ import type { Content } from '@google/genai';
 import { logger } from '../../utils/logger.js';
 import { recordAgentStepOutput } from '../../lib/langfuse.js';
 import {
-  GUARDRAIL_FAILURE_USER_MESSAGE,
-  judgeFinalAnswer,
-  shouldBlockFailedAnswers,
-} from './answer-judge.js';
+  buildGuardrailBlockedAnswerText,
+  buildGuardrailLowConfidenceAppend,
+  GUARDRAIL_DANGEROUS_TOOL_MESSAGE,
+  GUARDRAIL_EMPTY_INPUT_MESSAGE,
+  GUARDRAIL_MESSAGE_TOO_LONG_MESSAGE,
+} from '../../prompts/index.js';
+import { judgeFinalAnswer, shouldBlockFailedAnswers } from './answer-judge.js';
 
 const BLOCKED_SQL =
   /\b(DROP|DELETE|INSERT|UPDATE|ALTER|TRUNCATE|CREATE|GRANT|REVOKE)\b/i;
@@ -38,20 +41,17 @@ export const beforeAgentGuard: SingleAgentCallback = async (context: CallbackCon
     logger.warn({ agent: context.agentName }, 'Guardrail: empty user input');
     return {
       role: 'model',
-      parts: [{ text: 'Please enter a message so I can help you.' }],
+      parts: [{ text: GUARDRAIL_EMPTY_INPUT_MESSAGE }],
     };
   }
   if (query.length > 8000) {
     return {
       role: 'model',
-      parts: [{ text: 'Your message is too long. Please shorten it and try again.' }],
+      parts: [{ text: GUARDRAIL_MESSAGE_TOO_LONG_MESSAGE }],
     };
   }
   return undefined;
 };
-
-const DANGEROUS_TOOL_MESSAGE =
-  'This tool call was blocked by safety policy. Use read-only operations only.';
 
 /** Validate tool name and arguments before remote execution. */
 export const beforeToolGuard: SingleBeforeToolCallback = async ({ tool, args, context }) => {
@@ -71,7 +71,7 @@ export const beforeToolGuard: SingleBeforeToolCallback = async ({ tool, args, co
     }
     if (BLOCKED_SQL.test(query)) {
       logger.warn({ query: query.slice(0, 120) }, 'Guardrail: blocked SQL');
-      return { error: DANGEROUS_TOOL_MESSAGE, blocked: true };
+      return { error: GUARDRAIL_DANGEROUS_TOOL_MESSAGE, blocked: true };
     }
   }
 
@@ -139,7 +139,11 @@ export const synthesisAfterModelJudge: SingleAfterModelCallback = async ({
           role: 'model',
           parts: [
             {
-              text: `${GUARDRAIL_FAILURE_USER_MESSAGE}\n\n_(Quality check: ${judge.verdict}, score ${judge.score.toFixed(2)} — ${judge.reason})_`,
+              text: buildGuardrailBlockedAnswerText({
+                verdict: judge.verdict,
+                score: judge.score,
+                reason: judge.reason,
+              }),
             },
           ],
         },
@@ -153,7 +157,11 @@ export const synthesisAfterModelJudge: SingleAfterModelCallback = async ({
           role: 'model',
           parts: [
             {
-              text: `${answer}\n\n---\n_Note: Low confidence (${judge.verdict}, ${judge.score.toFixed(2)}). Verify important details._`,
+              text: buildGuardrailLowConfidenceAppend({
+                answer,
+                verdict: judge.verdict,
+                score: judge.score,
+              }),
             },
           ],
         },

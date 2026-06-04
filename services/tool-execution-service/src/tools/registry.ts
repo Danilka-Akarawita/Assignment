@@ -1,36 +1,41 @@
+import {
+  CALCULATOR_EXPRESSION_PARAM_DESCRIPTION,
+  CALCULATOR_TOOL_DESCRIPTION,
+  KNOWLEDGE_RETRIEVAL_TOOL_DESCRIPTION,
+  SQL_QUERY_PARAM_DESCRIPTION,
+  SQL_TOOL_DESCRIPTION,
+} from '../prompts/index.js';
 import type { ToolDefinition } from '../types/tools.js';
 
 export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: 'sql',
-    description:
-      'Execute a read-only SQL SELECT against the application database. Knowledge tables require user_id filter.',
+    description: SQL_TOOL_DESCRIPTION,
     inputSchema: {
       type: 'object',
       required: ['query'],
       properties: {
-        query: { type: 'string', description: 'Read-only SELECT or WITH ... SELECT' },
+        query: { type: 'string', description: SQL_QUERY_PARAM_DESCRIPTION },
       },
     },
   },
   {
     name: 'calculator',
-    description: 'Evaluate a mathematical expression safely (numeric result).',
+    description: CALCULATOR_TOOL_DESCRIPTION,
     inputSchema: {
       type: 'object',
       required: ['expression'],
       properties: {
         expression: {
           type: 'string',
-          description: 'Math expression, e.g. "(2 + 3) * sqrt(16)"',
+          description: CALCULATOR_EXPRESSION_PARAM_DESCRIPTION,
         },
       },
     },
   },
   {
     name: 'knowledge_retrieval',
-    description:
-      'Semantic search over ingested documents via the knowledge service (pgvector-backed).',
+    description: KNOWLEDGE_RETRIEVAL_TOOL_DESCRIPTION,
     inputSchema: {
       type: 'object',
       required: ['query'],

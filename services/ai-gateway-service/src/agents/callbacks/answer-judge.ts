@@ -1,7 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
 import { GEMINI_MODEL } from '../config.js';
+import { buildAnswerJudgePrompt } from '../../prompts/index.js';
 import { recordAgentStepOutput, traceGeneration } from '../../lib/langfuse.js';
 import { logger } from '../../utils/logger.js';
+
+export { GUARDRAIL_FAILURE_USER_MESSAGE } from '../../prompts/index.js';
 
 export type AnswerVerdict = 'correct' | 'partial' | 'wrong' | 'unknown';
 
@@ -65,31 +68,12 @@ export async function judgeFinalAnswer(params: {
   }
 
   const model = process.env.GUARDRAIL_JUDGE_MODEL ?? GEMINI_MODEL;
-  const prompt = `You are a quality judge for a customer-support AI assistant.
-
-User question:
-${params.userQuery}
-
-Tool / retrieval context (may be empty):
-${params.executionSummary?.slice(0, 4000) ?? 'No execution context provided.'}
-
-Assistant answer to evaluate:
-${trimmedAnswer.slice(0, 8000)}
-
-Score whether the assistant answer is factually supported by the context, addresses the question, and avoids inventing policy details not present in context.
-
-Return JSON only:
-{
-  "score": 0.0 to 1.0,
-  "verdict": "correct" | "partial" | "wrong",
-  "reason": "one short sentence"
-}
-
-Rules:
-- "correct": fully addresses the question and claims match context (or are general safe guidance when context is empty).
-- "partial": mostly helpful but missing key details or slight unsupported claims.
-- "wrong": contradicts context, hallucinates policy, or does not answer the question.
-`;
+  const prompt = buildAnswerJudgePrompt({
+    userQuery: params.userQuery,
+    executionSummary:
+      params.executionSummary?.slice(0, 4000) ?? 'No execution context provided.',
+    answer: trimmedAnswer.slice(0, 8000),
+  });
 
   try {
     const raw = await traceGeneration(
@@ -147,5 +131,3 @@ Rules:
   }
 }
 
-export const GUARDRAIL_FAILURE_USER_MESSAGE =
-  "I wasn't able to verify this answer against our knowledge base. Please try again or contact support if you need official policy details.";

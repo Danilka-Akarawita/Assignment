@@ -25,6 +25,18 @@ npm run dev
 
 Open http://localhost:3000
 
+## Prompts
+
+LLM prompts and agent-facing tool copy live in one file per service:
+
+| Service | File |
+|---------|------|
+| ai-gateway-service | `services/ai-gateway-service/src/prompts/index.ts` |
+| knowledge-service | `services/knowledge-service/src/prompts/index.ts` |
+| tool-execution-service | `services/tool-execution-service/src/prompts/index.ts` |
+
+Edit prompts there instead of scattering them across agents and services.
+
 ## Observability (Langfuse)
 
 Agent and LLM traces from **ai-gateway-service** are sent to [Langfuse](https://langfuse.com) when configured. See [services/ai-gateway-service/docs/LANGFUSE.md](services/ai-gateway-service/docs/LANGFUSE.md).

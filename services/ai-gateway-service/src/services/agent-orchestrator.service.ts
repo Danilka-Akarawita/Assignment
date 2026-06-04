@@ -3,7 +3,11 @@ import { createUserContent } from '@google/genai';
 import { agentWorkflow } from '../agents/workflow.agent.js';
 import { planAgent } from '../agents/plan.agent.js';
 import { synthesisAgent } from '../agents/synthesis.agent.js';
-import { ADK_APP_NAME, GPT_MODEL,GEMINI_MODEL } from '../agents/config.js';
+import { ADK_APP_NAME, GEMINI_MODEL } from '../agents/config.js';
+import {
+  QUERY_REWRITER_AGENT_INSTRUCTION,
+  buildQueryRewriteUserPrompt,
+} from '../prompts/index.js';
 import { recordAgentStepOutput, traceAgentStep } from '../lib/langfuse.js';
 import { gatewayContext } from '../lib/request-context.js';
 import { prisma } from '../lib/prisma.js';
@@ -51,16 +55,7 @@ export class AgentOrchestratorService {
       model: GEMINI_MODEL,
       description:
         'Rewrites a user query into an explicit standalone request, using conversation history and summary.',
-      instruction: `You are given a conversation summary and the last 10 user/assistant messages.
-Use that context to rewrite the current user query into a fully-resolved standalone request.
-Also produce an updated concise conversation summary that captures the user's intent and recent context.
-Output valid JSON only with the keys:
-{
-  "resolvedQuery": "...",
-  "historySummary": "..."
-}
-Do not include any additional markdown or explanation.
-`,
+      instruction: QUERY_REWRITER_AGENT_INSTRUCTION,
       outputKey: 'rewritten_query',
     }),
     appName: ADK_APP_NAME,
@@ -94,8 +89,11 @@ Do not include any additional markdown or explanation.
       .map((message) => `${message.role}: ${message.content}`)
       .join('\n');
 
-    const prompt = `Conversation summary:\n${previousSummary || 'No previous summary available.'}\n\nRecent history:\n${historyText || 'No recent history.'}\n\nUser query:\n${userMessage}\n\nRewrite the user query as a self-contained, explicit request using the context above. Also provide an updated concise conversation summary.
-Output valid JSON only.`;
+    const prompt = buildQueryRewriteUserPrompt({
+      previousSummary,
+      historyText,
+      userMessage,
+    });
 
     const content = createUserContent(prompt);
     let rewrittenText = '';

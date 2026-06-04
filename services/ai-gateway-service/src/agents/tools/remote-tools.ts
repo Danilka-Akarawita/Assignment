@@ -1,5 +1,11 @@
 import { FunctionTool } from '@google/adk';
 import { z } from 'zod';
+import {
+  CALCULATOR_TOOL_DESCRIPTION,
+  KNOWLEDGE_RETRIEVAL_TOOL_DESCRIPTION,
+  SQL_QUERY_TOOL_DESCRIPTION,
+  UPDATE_TODO_STATUS_TOOL_DESCRIPTION,
+} from '../../prompts/index.js';
 import { executeRemoteTool } from '../../services/tool-client.service.js';
 import { todoTracker } from '../../services/todo-tracker.service.js';
 
@@ -12,8 +18,7 @@ const knowledgeParams = z.object({
 
 export const knowledgeRetrievalTool = new FunctionTool({
   name: 'knowledge_retrieval',
-  description:
-    'Semantic search over the user uploaded documents (invoices, policies, etc.). Use for RAG retrieval.',
+  description: KNOWLEDGE_RETRIEVAL_TOOL_DESCRIPTION,
   parameters: knowledgeParams as never,
   execute: async (input: unknown) => {
     const { query, limit, documentId, minSimilarity } = knowledgeParams.parse(input);
@@ -31,8 +36,7 @@ const sqlParams = z.object({
 
 export const sqlQueryTool = new FunctionTool({
   name: 'sql_query',
-  description:
-    'Run a read-only SQL SELECT. When querying knowledge_documents or knowledge_document_chunks you MUST filter by user_id from session context.',
+  description: SQL_QUERY_TOOL_DESCRIPTION,
   parameters: sqlParams as never,
   execute: async (input: unknown) => {
     const { query } = sqlParams.parse(input);
@@ -46,7 +50,7 @@ const calculatorParams = z.object({
 
 export const calculatorTool = new FunctionTool({
   name: 'calculator',
-  description: 'Evaluate a mathematical expression and return a numeric result.',
+  description: CALCULATOR_TOOL_DESCRIPTION,
   parameters: calculatorParams as never,
   execute: async (input: unknown) => {
     const { expression } = calculatorParams.parse(input);
@@ -62,8 +66,7 @@ const todoParams = z.object({
 
 export const updateTodoStatusTool = new FunctionTool({
   name: 'update_todo_status',
-  description:
-    'Update a todo item status in the plan tracker. Call when starting or finishing a step.',
+  description: UPDATE_TODO_STATUS_TOOL_DESCRIPTION,
   parameters: todoParams as never,
   execute: async (input: unknown) => {
     const { position, status, resultSummary } = todoParams.parse(input);

@@ -1,5 +1,6 @@
 
 import { LlmAgent } from '@google/adk';
+import { SYNTHESIS_AGENT_INSTRUCTION } from '../prompts/index.js';
 import { GEMINI_MODEL } from './config.js';
 import {
   beforeAgentGuard,
@@ -17,28 +18,6 @@ export const synthesisAgent = new LlmAgent({
   beforeAgentCallback: beforeAgentGuard,
   afterModelCallback: synthesisAfterModelJudge,
   afterAgentCallback: synthesisAfterAgentLog,
-  instruction: `
-You are the final response agent.
-
-Original user request is available in the conversation.
-
-Plan:
-{agent_plan}
-
-Execution Results:
-{execution_results}
-
-Generate the final answer for the user.
-
-Requirements:
-- Answer the user's request directly.
-- Use facts from execution_results.
-- Include important numbers, totals, dates, or findings.
-- Mention limitations if information is missing.
-- Use markdown when helpful.
-- Be concise but complete.
-
-Output only the final user response.
-`,
+  instruction: SYNTHESIS_AGENT_INSTRUCTION,
   outputKey: 'final_response',
 });

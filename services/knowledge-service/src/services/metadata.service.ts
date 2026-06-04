@@ -1,4 +1,10 @@
 import { METADATA_MODEL, openai } from '../lib/openai.js';
+import {
+  buildChunkMetadataUserPrompt,
+  buildDocumentSummaryUserPrompt,
+  CHUNK_METADATA_SYSTEM_PROMPT,
+  DOCUMENT_SUMMARY_SYSTEM_PROMPT,
+} from '../prompts/index.js';
 import type { ChunkMetadata } from '../types/chunk-metadata.js';
 import { isChunkMetadata } from '../types/chunk-metadata.js';
 import { logger } from '../utils/logger.js';
@@ -44,12 +50,11 @@ export class MetadataService {
       messages: [
         {
           role: 'system',
-          content:
-            'You summarize documents. Return JSON with keys: title (string), summary (string, 2-3 sentences), tags (string array, max 8).',
+          content: DOCUMENT_SUMMARY_SYSTEM_PROMPT,
         },
         {
           role: 'user',
-          content: `Filename: ${filename}\n\nContent preview:\n${preview}`,
+          content: buildDocumentSummaryUserPrompt(filename, preview),
         },
       ],
     });
@@ -82,18 +87,11 @@ export class MetadataService {
       messages: [
         {
           role: 'system',
-          content: `You extract structured metadata from document chunks for vector search filtering.
-Return JSON with keys:
-- summary (string, one sentence)
-- topics (string array, 1-5 broad topics)
-- keywords (string array, 3-10 specific keywords)
-- section (string, optional section heading)
-- contentType (string, e.g. paragraph, table, list, heading, code)
-- entities (string array, named entities like people, orgs, products)`,
+          content: CHUNK_METADATA_SYSTEM_PROMPT,
         },
         {
           role: 'user',
-          content: `Document: ${filename}\nChunk index: ${index}\n\n${chunkText}`,
+          content: buildChunkMetadataUserPrompt(filename, index, chunkText),
         },
       ],
     });
