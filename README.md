@@ -15,7 +15,7 @@ Microservices backend + Next.js frontend for RAG chat with agent tools.
 ## Quick start (local)
 
 ```powershell
-docker compose up -d db rabbitmq
+docker compose up -d db rabbitmq redis
 # Start each service (see service README / .env.example)
 cd services/frontend
 copy .env.local.example .env.local
