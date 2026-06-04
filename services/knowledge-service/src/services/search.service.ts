@@ -1,11 +1,10 @@
 import { vectorSearch, type VectorSearchParams } from '../lib/vector.js';
-import type { ChunkMetadata } from '../types/chunk-metadata.js';
 import type { SearchResponse } from '../types/search.js';
 import { logger } from '../utils/logger.js';
 import { EmbeddingService } from './embedding.service.js';
 import {
   filtersToVectorParams,
-  mergeSearchFilters,
+  hasSearchFilters,
   MetadataQueryService,
 } from './metadata-query.service.js';
 
@@ -14,7 +13,6 @@ export interface SearchOptions {
   userId: number;
   limit?: number;
   documentId?: number;
-  filters?: Partial<ChunkMetadata>;
   minSimilarity?: number;
   /** When false, skip LLM metadata extraction from the query. */
   useMetadataExtraction?: boolean;
@@ -30,18 +28,21 @@ export class SearchService {
       userId,
       limit = 10,
       documentId,
-      filters,
       minSimilarity = 0.5,
       useMetadataExtraction = true,
     } = options;
 
     const extracted =
       useMetadataExtraction && process.env.METADATA_QUERY_EXTRACTION_ENABLED !== 'false'
-        ? await this.metadataQuery.extractFromQuery(query)
+        ? await this.metadataQuery.extractFromQuery(query, {
+            userId,
+            ...(documentId !== undefined ? { documentId } : {}),
+          })
         : {};
 
-    const mergedFilters = mergeSearchFilters(filters, extracted);
-    const metadataFilterParams = filtersToVectorParams(mergedFilters);
+    const metadataFilterParams = filtersToVectorParams(
+      hasSearchFilters(extracted) ? extracted : undefined,
+    );
 
     const queryEmbedding = await this.embedding.embedQuery(query);
 
@@ -60,7 +61,7 @@ export class SearchService {
     if (results.length === 0 && Object.keys(metadataFilterParams).length > 0) {
       metadataFallback = true;
       logger.info(
-        { userId, filters: mergedFilters },
+        { userId, filters: extracted },
         'No hits with metadata filters — retrying vector search without metadata',
       );
       const fallbackParams: VectorSearchParams = {
@@ -78,7 +79,7 @@ export class SearchService {
         userId,
         query: query.slice(0, 80),
         resultCount: results.length,
-        metadataFilters: mergedFilters,
+        metadataFilters: extracted,
         metadataFallback,
       },
       'Knowledge search completed',
@@ -87,7 +88,7 @@ export class SearchService {
     return {
       query,
       total: results.length,
-      appliedFilters: mergedFilters ?? null,
+      appliedFilters: hasSearchFilters(extracted) ? extracted : null,
       retrieval: {
         metadataFallback,
       },

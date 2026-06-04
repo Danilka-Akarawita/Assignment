@@ -111,15 +111,6 @@ export const searchDocuments = async (req: AuthRequest, res: Response) => {
       useMetadataExtraction: input.useMetadataExtraction,
     };
     if (input.documentId !== undefined) searchInput.documentId = input.documentId;
-    if (input.filters !== undefined) {
-      const filters: NonNullable<Parameters<SearchService['search']>[0]['filters']> = {};
-      if (input.filters.topics !== undefined) filters.topics = input.filters.topics;
-      if (input.filters.keywords !== undefined) filters.keywords = input.filters.keywords;
-      if (input.filters.contentType !== undefined) filters.contentType = input.filters.contentType;
-      if (input.filters.section !== undefined) filters.section = input.filters.section;
-      if (input.filters.entities !== undefined) filters.entities = input.filters.entities;
-      searchInput.filters = filters;
-    }
 
     const results = await searchService.search(searchInput);
 

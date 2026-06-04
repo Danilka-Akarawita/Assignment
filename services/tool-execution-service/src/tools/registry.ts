@@ -47,16 +47,6 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         limit: { type: 'integer', minimum: 1, maximum: 50, default: 10 },
         documentId: { type: 'integer' },
         minSimilarity: { type: 'number', minimum: 0, maximum: 1, default: 0.5 },
-        filters: {
-          type: 'object',
-          properties: {
-            topics: { type: 'array', items: { type: 'string' } },
-            keywords: { type: 'array', items: { type: 'string' } },
-            contentType: { type: 'string' },
-            section: { type: 'string' },
-            entities: { type: 'array', items: { type: 'string' } },
-          },
-        },
       },
     },
   },

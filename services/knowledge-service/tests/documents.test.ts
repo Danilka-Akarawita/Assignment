@@ -202,7 +202,9 @@ describe('Knowledge service endpoints', () => {
     assert.ok(res.body.results[0].chunkText.toLowerCase().includes('refund'));
   });
 
-  it('POST /documents/search supports metadata filters', { skip: !openaiAvailable }, async () => {
+  it('POST /documents/search returns appliedFilters when extraction runs', {
+    skip: !openaiAvailable,
+  }, async () => {
     const res = await request(app)
       .post('/documents/search')
       .set(authHeader)
@@ -210,13 +212,12 @@ describe('Knowledge service endpoints', () => {
         query: 'shipping delivery time',
         limit: 5,
         minSimilarity: 0.2,
-        filters: {
-          keywords: ['shipping'],
-        },
+        useMetadataExtraction: true,
       });
 
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.ok(Array.isArray(res.body.results));
+    assert.ok('appliedFilters' in res.body);
   });
 
   it('POST /documents/search validates input', async () => {
