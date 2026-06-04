@@ -22,10 +22,12 @@ export const knowledgeRetrievalTool = new FunctionTool({
   parameters: knowledgeParams as never,
   execute: async (input: unknown) => {
     const { query, limit, documentId, minSimilarity } = knowledgeParams.parse(input);
-    const args: Record<string, unknown> = { query };
+    const args: Record<string, unknown> = {
+      query,
+      minSimilarity: minSimilarity ?? 0.25,
+    };
     if (limit !== undefined) args.limit = limit;
     if (documentId !== undefined) args.documentId = documentId;
-    if (minSimilarity !== undefined) args.minSimilarity = minSimilarity;
     return executeRemoteTool('knowledge_retrieval', args);
   },
 });

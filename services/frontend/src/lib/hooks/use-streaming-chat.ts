@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { ApiError } from '@/lib/api/http';
 import * as gatewayApi from '@/lib/api/gateway';
 import type { AgentRun, AgentTodo, Message } from '@/lib/types';
 
-const POLL_MS = 800;
+const POLL_MS = 2000;
+const POLL_MS_ON_429 = 5000;
 const TERMINAL = new Set(['COMPLETED', 'FAILED']);
 
 export interface ChatStreamState {
@@ -13,6 +15,10 @@ export interface ChatStreamState {
   streamingContent: string;
   streamEnabled: boolean;
   error: string | null;
+}
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export function useStreamingChat(accessToken: string | null) {
@@ -29,12 +35,25 @@ export function useStreamingChat(accessToken: string | null) {
     async (runId: number): Promise<AgentRun> => {
       if (!accessToken) throw new Error('Not authenticated');
 
-      while (!abortRef.current) {
-        const { agentRun } = await gatewayApi.getAgentRun(accessToken, runId);
-        setState((s) => ({ ...s, agentRun }));
+      let delay = POLL_MS;
 
-        if (TERMINAL.has(agentRun.status)) return agentRun;
-        await new Promise((r) => setTimeout(r, POLL_MS));
+      while (!abortRef.current) {
+        try {
+          const { agentRun } = await gatewayApi.getAgentRun(accessToken, runId);
+          setState((s) => ({ ...s, agentRun }));
+          delay = POLL_MS;
+
+          if (TERMINAL.has(agentRun.status)) return agentRun;
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 429) {
+            delay = POLL_MS_ON_429;
+            await sleep(delay);
+            continue;
+          }
+          throw err;
+        }
+
+        await sleep(delay);
       }
       throw new Error('Cancelled');
     },
@@ -97,7 +116,12 @@ export function useStreamingChat(accessToken: string | null) {
 
         return { assistantContent, agentRun: finalRun };
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Send failed';
+        const message =
+          err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : 'Send failed';
         setState((s) => ({
           ...s,
           isSending: false,

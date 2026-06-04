@@ -1,18 +1,24 @@
-import { InMemoryRunner, isFinalResponse, LlmAgent } from '@google/adk';
+import { InMemoryRunner, isFinalResponse } from '@google/adk';
 import { createUserContent } from '@google/genai';
 import { agentWorkflow } from '../agents/workflow.agent.js';
 import { planAgent } from '../agents/plan.agent.js';
+import { queryRewriterAgent } from '../agents/query-rewriter.agent.js';
 import { synthesisAgent } from '../agents/synthesis.agent.js';
-import { ADK_APP_NAME, GEMINI_MODEL } from '../agents/config.js';
+import { ADK_APP_NAME } from '../agents/config.js';
+import { buildQueryRewriteUserPrompt } from '../prompts/index.js';
 import {
-  QUERY_REWRITER_AGENT_INSTRUCTION,
-  buildQueryRewriteUserPrompt,
-} from '../prompts/index.js';
+  parseAgentJson,
+  parseAgentPlan,
+  type AgentPlan,
+  type ExecutionResults,
+  type QueryRewrite,
+  type SynthesisOutput,
+} from '../types/agent-plan.js';
 import { recordAgentStepOutput, traceAgentStep } from '../lib/langfuse.js';
 import { gatewayContext } from '../lib/request-context.js';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../utils/logger.js';
-import { parseAgentPlan } from '../types/agent-plan.js';
+import { buildKnowledgeCatalogForAgent } from '../lib/knowledge-catalog.js';
 import { todoTracker } from './todo-tracker.service.js';
 
 export interface RunAgentInput {
@@ -26,8 +32,8 @@ export interface RunAgentInput {
 
 export interface RunAgentResult {
   finalResponse: string;
-  plan: unknown;
-  executionResults: unknown;
+  plan: AgentPlan | unknown;
+  executionResults: ExecutionResults | unknown;
 }
 
 export interface ResolveUserMessageInput {
@@ -50,14 +56,7 @@ export class AgentOrchestratorService {
   });
 
   private queryRewriterRunner = new InMemoryRunner({
-    agent: new LlmAgent({
-      name: 'QueryRewriterAgent',
-      model: GEMINI_MODEL,
-      description:
-        'Rewrites a user query into an explicit standalone request, using conversation history and summary.',
-      instruction: QUERY_REWRITER_AGENT_INSTRUCTION,
-      outputKey: 'rewritten_query',
-    }),
+    agent: queryRewriterAgent,
     appName: ADK_APP_NAME,
   });
 
@@ -115,31 +114,25 @@ export class AgentOrchestratorService {
       }
     }
 
-    try {
-      const parsed = rewrittenText ? JSON.parse(rewrittenText) : null;
-      const result = {
-        resolvedQuery: typeof parsed?.resolvedQuery === 'string' && parsed.resolvedQuery.trim().length
+    const parsed = rewrittenText ? parseAgentJson<QueryRewrite>(rewrittenText) : null;
+    const result = {
+      resolvedQuery:
+        typeof parsed?.resolvedQuery === 'string' && parsed.resolvedQuery.trim()
           ? parsed.resolvedQuery.trim()
           : userMessage,
-        historySummary:
-          typeof parsed?.historySummary === 'string' && parsed.historySummary.trim().length
-            ? parsed.historySummary.trim()
-            : previousSummary,
-      };
-      recordAgentStepOutput(
-        'agent.query-rewrite.result',
-        { userMessage },
-        result,
-        { userId, sessionId }
-      );
-      return result;
-    } catch (err) {
-      logger.warn({ err, rewrittenText }, 'Failed to parse query rewrite JSON');
-      return {
-        resolvedQuery: userMessage,
-        historySummary: previousSummary,
-      };
-    }
+      historySummary:
+        typeof parsed?.historySummary === 'string' && parsed.historySummary.trim()
+          ? parsed.historySummary.trim()
+          : previousSummary,
+    };
+
+    recordAgentStepOutput(
+      'agent.query-rewrite.result',
+      { userMessage },
+      result,
+      { userId, sessionId }
+    );
+    return result;
   }
 
   async run(input: RunAgentInput): Promise<RunAgentResult> {
@@ -167,6 +160,26 @@ export class AgentOrchestratorService {
     return gatewayContext.run(
       { userId, authToken, agentRunId },
       async () => {
+        const userKnowledgeCatalog = await buildKnowledgeCatalogForAgent(authToken);
+
+        const emptyPlan = JSON.stringify({
+          goal: 'Pending',
+          todos: [
+            {
+              position: 1,
+              title: 'Search knowledge base',
+              description: userMessage,
+              toolHint: 'knowledge_retrieval',
+            },
+          ],
+        });
+        const emptyExecution = JSON.stringify({
+          completedTodos: 0,
+          failedTodos: 0,
+          findings: [],
+          structuredData: {},
+        });
+
         await this.runner.sessionService.createSession({
           appName: ADK_APP_NAME,
           userId: String(userId),
@@ -175,9 +188,14 @@ export class AgentOrchestratorService {
             user_id: userId,
             agent_run_id: agentRunId,
             user_query: userMessage,
+            user_knowledge_catalog: userKnowledgeCatalog,
+            agent_plan: emptyPlan,
+            execution_results: emptyExecution,
           },
         });
 
+        let plan: AgentPlan | null = null;
+        let executionResults: ExecutionResults | unknown = null;
         let planRaw = '';
         let executionRaw = '';
         let finalResponse = '';
@@ -210,7 +228,7 @@ export class AgentOrchestratorService {
                 { textPreview: text.slice(0, 500) },
                 { agentRunId, author }
               );
-              const plan = parseAgentPlan(text);
+              plan = parseAgentPlan(text);
               if (plan) {
                 await todoTracker.persistPlan(agentRunId, {
                   goal: plan.goal,
@@ -227,6 +245,7 @@ export class AgentOrchestratorService {
               }
             } else if (author === 'TodoExecutorAgent') {
               executionRaw = text;
+              executionResults = parseAgentJson<ExecutionResults>(text) ?? text;
               recordAgentStepOutput(
                 'agent.step.executor',
                 { userMessage },
@@ -234,11 +253,15 @@ export class AgentOrchestratorService {
                 { agentRunId, author }
               );
             } else if (author === synthesisAgent.name) {
-              finalResponse = text;
+              const synthesis = parseAgentJson<SynthesisOutput>(text);
+              finalResponse =
+                typeof synthesis?.answer === 'string' && synthesis.answer.trim()
+                  ? synthesis.answer.trim()
+                  : text;
               recordAgentStepOutput(
                 'agent.step.synthesis',
                 { userMessage },
-                { textPreview: text.slice(0, 500) },
+                { textPreview: finalResponse.slice(0, 500) },
                 { agentRunId, author }
               );
             }
@@ -252,11 +275,16 @@ export class AgentOrchestratorService {
             sessionId,
           });
           const state = session?.state as Record<string, unknown> | undefined;
-          finalResponse =
-            (typeof state?.final_response === 'string' && state.final_response) ||
-            executionRaw ||
-            planRaw ||
-            'I could not generate a response. Please try again.';
+          const stateFinal = state?.final_response;
+          if (typeof stateFinal === 'string') {
+            const synthesis = parseAgentJson<SynthesisOutput>(stateFinal);
+            finalResponse = synthesis?.answer?.trim() || stateFinal;
+          } else {
+            finalResponse =
+              executionRaw ||
+              planRaw ||
+              'I could not generate a response. Please try again.';
+          }
         }
 
         await prisma.agentRun.update({
@@ -264,15 +292,22 @@ export class AgentOrchestratorService {
           data: {
             status: 'COMPLETED',
             finalResponse,
-            ...(planRaw ? { plan: { raw: planRaw } } : {}),
-            ...(executionRaw ? { executionLog: { raw: executionRaw } } : {}),
+            ...(planRaw ? { plan: plan ? (plan as object) : { raw: planRaw } } : {}),
+            ...(executionRaw
+              ? {
+                  executionLog:
+                    executionResults && typeof executionResults === 'object'
+                      ? (executionResults as object)
+                      : { raw: executionRaw },
+                }
+              : {}),
           },
         });
 
         return {
           finalResponse,
-          plan: parseAgentPlan(planRaw) ?? planRaw,
-          executionResults: executionRaw,
+          plan: plan ?? planRaw,
+          executionResults: executionResults ?? executionRaw,
         };
       }
     );

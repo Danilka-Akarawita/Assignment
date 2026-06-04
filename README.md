@@ -37,6 +37,8 @@ LLM prompts and agent-facing tool copy live in one file per service:
 
 Edit prompts there instead of scattering them across agents and services.
 
+Structured agent outputs use Gemini `Schema` definitions in `services/ai-gateway-service/src/agents/output-schemas.ts` and `outputSchema` on each `LlmAgent` (see [ADK structured output](https://adk.dev/agents/llm-agents/)).
+
 ## Observability (Langfuse)
 
 Agent and LLM traces from **ai-gateway-service** are sent to [Langfuse](https://langfuse.com) when configured. See [services/ai-gateway-service/docs/LANGFUSE.md](services/ai-gateway-service/docs/LANGFUSE.md).

@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { GEMINI_MODEL } from '../config.js';
+import { answerJudgeOutputSchema } from '../output-schemas.js';
 import { buildAnswerJudgePrompt } from '../../prompts/index.js';
 import { recordAgentStepOutput, traceGeneration } from '../../lib/langfuse.js';
 import { logger } from '../../utils/logger.js';
@@ -87,7 +88,10 @@ export async function judgeFinalAnswer(params: {
         const res = await client.models.generateContent({
           model,
           contents: prompt,
-          config: { responseMimeType: 'application/json' },
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: answerJudgeOutputSchema,
+          },
         });
         return res.text ?? '';
       }
@@ -130,4 +134,3 @@ export async function judgeFinalAnswer(params: {
     };
   }
 }
-

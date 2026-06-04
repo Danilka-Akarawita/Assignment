@@ -10,6 +10,22 @@ export class ApiError extends Error {
   }
 }
 
+function messageFromBody(body: unknown, status: number): string {
+  if (typeof body === 'object' && body !== null) {
+    const record = body as Record<string, unknown>;
+    if (typeof record.error === 'string' && record.error.trim()) {
+      return record.error;
+    }
+    if (typeof record.message === 'string' && record.message.trim()) {
+      return record.message;
+    }
+  }
+  if (status === 429) {
+    return 'Too many requests. Please wait a moment and try again.';
+  }
+  return `Request failed (${status})`;
+}
+
 export async function apiFetch<T>(
   url: string,
   options: RequestInit & { accessToken?: string | null } = {}
@@ -37,11 +53,7 @@ export async function apiFetch<T>(
   }
 
   if (!res.ok) {
-    const err =
-      typeof body === 'object' && body !== null && 'error' in body
-        ? String((body as { error: string }).error)
-        : `Request failed (${res.status})`;
-    throw new ApiError(err, res.status, body);
+    throw new ApiError(messageFromBody(body, res.status), res.status, body);
   }
 
   return body as T;

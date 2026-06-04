@@ -12,7 +12,7 @@ export const knowledgeRetrievalInputSchema = z.object({
   query: z.string().min(1).max(2000),
   limit: z.coerce.number().int().min(1).max(50).optional().default(10),
   documentId: z.coerce.number().int().positive().optional(),
-  minSimilarity: z.coerce.number().min(0).max(1).optional().default(0.5),
+  minSimilarity: z.coerce.number().min(0).max(1).optional().default(0.25),
   filters: z
     .object({
       topics: z.array(z.string()).optional(),

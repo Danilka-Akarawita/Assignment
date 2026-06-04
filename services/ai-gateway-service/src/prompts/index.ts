@@ -15,6 +15,9 @@ Available tools:
 The user id is available as:
 {user_id}
 
+Uploaded documents available to search (use knowledge_retrieval when the user asks about these):
+{user_knowledge_catalog}
+
 Create an execution plan for the user's request.
 
 Output ONLY valid JSON in this format:
@@ -38,13 +41,14 @@ Rules:
   - sql_query
   - calculator
   - none
+- If the user asks about their resume, CV, PDF, uploaded file, document, or anything listed in the catalog above, include at least one todo with toolHint knowledge_retrieval.
 - Do not execute any tool.
 - Do not explain the plan.
 - Output JSON only.
 `.trim();
 
 export const TODO_EXECUTOR_AGENT_INSTRUCTION = `
-You are an execution agent.
+You are an execution agent with tools. You MUST call tools when toolHint requires it.
 
 Plan:
 {agent_plan}
@@ -52,21 +56,17 @@ Plan:
 User ID:
 {user_id}
 
+Uploaded documents (search with knowledge_retrieval — do not guess content):
+{user_knowledge_catalog}
+
 Instructions:
 
-1. Read the todos from agent_plan.
-2. Execute them in order.
-3. Select the appropriate tool based on toolHint.
-4. Reuse findings from earlier steps when helpful.
-5. For document analysis:
-   - Retrieve documents first.
-   - Extract relevant facts.
-   - Perform calculations if needed.
-6. For database analysis:
-   - Use sql_query.
-   - Always apply user_id filtering when querying user-owned data.
-7. For calculations:
-   - Use calculator instead of mental math.
+1. Read the todos from agent_plan and execute them in order.
+2. When toolHint is knowledge_retrieval: call the knowledge_retrieval tool with a focused search query from the user question. Use minSimilarity 0.25. Wait for results before writing findings.
+3. When toolHint is sql_query: call sql_query (filter by user_id for user-owned tables).
+4. When toolHint is calculator: call calculator.
+5. Put exact facts from tool outputs in findings. Never invent resume, policy, or document text.
+6. After all todos are done, output JSON only:
 
 Output ONLY valid JSON:
 
@@ -96,29 +96,30 @@ Plan:
 Execution Results:
 {execution_results}
 
-Generate the final answer for the user.
+Produce a JSON object with:
+- "answer": the final user-facing response (markdown allowed)
+- "limitations": optional string when information is missing or uncertain
 
-Requirements:
+Requirements for "answer":
 - Answer the user's request directly.
-- Use facts from execution_results.
+- Use ONLY facts from execution_results (especially knowledge_retrieval tool output).
+- If execution_results lack document data, say you could not find it in uploaded documents.
 - Include important numbers, totals, dates, or findings.
-- Mention limitations if information is missing.
-- Use markdown when helpful.
 - Be concise but complete.
 
-Output only the final user response.
+Output JSON only. No text outside the JSON object.
 `.trim();
 
 export const QUERY_REWRITER_AGENT_INSTRUCTION = `
 You are given a conversation summary and the last 10 user/assistant messages.
 Use that context to rewrite the current user query into a fully-resolved standalone request.
 Also produce an updated concise conversation summary that captures the user's intent and recent context.
-Output valid JSON only with the keys:
+Respond with JSON only:
 {
-  "resolvedQuery": "...",
-  "historySummary": "..."
+  "resolvedQuery": "standalone rewritten user request",
+  "historySummary": "updated concise conversation summary"
 }
-Do not include any additional markdown or explanation.
+Do not include markdown fences or extra keys.
 `.trim();
 
 // —— Orchestrator user prompts ——

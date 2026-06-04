@@ -9,16 +9,17 @@ import {
   updateConversation,
 } from '../controllers/chat.controller.js';
 import { authenticate } from '../middleware/auth.js';
+import { chatMessageLimiter, readLimiter, writeLimiter } from '../middleware/rate-limit.js';
 
 const router = Router();
 router.use(authenticate);
 
-router.get('/agent-runs/:runId', getAgentRun);
-router.post('/', createConversation);
-router.get('/', listConversations);
-router.get('/:id', getConversation);
-router.patch('/:id', updateConversation);
-router.delete('/:id', deleteConversation);
-router.post('/:id/messages', sendMessage);
+router.get('/agent-runs/:runId', readLimiter, getAgentRun);
+router.post('/', writeLimiter, createConversation);
+router.get('/', readLimiter, listConversations);
+router.get('/:id', readLimiter, getConversation);
+router.patch('/:id', writeLimiter, updateConversation);
+router.delete('/:id', writeLimiter, deleteConversation);
+router.post('/:id/messages', chatMessageLimiter, sendMessage);
 
 export default router;

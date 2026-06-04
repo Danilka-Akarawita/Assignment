@@ -14,6 +14,7 @@ import {
   GUARDRAIL_EMPTY_INPUT_MESSAGE,
   GUARDRAIL_MESSAGE_TOO_LONG_MESSAGE,
 } from '../../prompts/index.js';
+import { parseAgentJson, type SynthesisOutput } from '../../types/agent-plan.js';
 import { judgeFinalAnswer, shouldBlockFailedAnswers } from './answer-judge.js';
 
 const BLOCKED_SQL =
@@ -103,16 +104,22 @@ export const synthesisAfterModelJudge: SingleAfterModelCallback = async ({
   context,
   response,
 }) => {
-  const answer = contentToText(response.content);
-  if (!answer) return undefined;
+  const rawAnswer = contentToText(response.content);
+  if (!rawAnswer) return undefined;
+
+  const synthesis = parseAgentJson<SynthesisOutput>(rawAnswer);
+  const answer =
+    typeof synthesis?.answer === 'string' && synthesis.answer.trim()
+      ? synthesis.answer.trim()
+      : rawAnswer;
 
   const userQuery = getUserQuery(context);
-  const executionRaw = context.state.get<string>('execution_results');
+  const executionRaw = context.state.get('execution_results');
   const executionSummary =
     typeof executionRaw === 'string'
-      ? executionRaw
-      : executionRaw
-        ? JSON.stringify(executionRaw)
+      ? executionRaw.slice(0, 4000)
+      : executionRaw !== undefined && executionRaw !== null
+        ? JSON.stringify(executionRaw).slice(0, 4000)
         : undefined;
 
   const agentRunId = context.state.get<number>('agent_run_id');
