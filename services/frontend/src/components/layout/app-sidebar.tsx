@@ -11,6 +11,7 @@ import { useAuthStore } from '@/lib/auth/store';
 import type { Conversation } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
+  Bot,
   FileText,
   LogOut,
   MessageSquarePlus,
@@ -65,20 +66,32 @@ export function AppSidebar() {
   };
 
   return (
-    <aside className="bg-sidebar text-sidebar-foreground flex w-64 shrink-0 flex-col border-r">
-      <div className="p-4">
-        <h1 className="text-lg font-semibold tracking-tight">AI Assistant</h1>
-        <p className="text-muted-foreground truncate text-xs">{user?.email}</p>
+    <aside className="bg-sidebar text-sidebar-foreground flex w-72 shrink-0 flex-col border-r border-sidebar-border shadow-elevated">
+      <div className="border-b border-sidebar-border px-5 py-5">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-sidebar-accent backdrop-blur-sm">
+            <Bot className="size-5 text-sidebar-primary-foreground" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-base font-semibold tracking-tight text-white">
+              AI Assistant
+            </h1>
+            <p className="truncate text-xs text-white/70">{user?.email}</p>
+          </div>
+        </div>
       </div>
-      <div className="px-3 pb-2">
-        <Button className="w-full justify-start gap-2" onClick={() => void newChat()}>
+      <div className="px-4 py-4">
+        <Button
+          className="w-full justify-start gap-2 bg-sidebar-primary text-sidebar-primary-foreground shadow-sm hover:bg-brand-300"
+          onClick={() => void newChat()}
+        >
           <MessageSquarePlus className="size-4" />
           New chat
         </Button>
       </div>
-      <Separator />
-      <ScrollArea className="flex-1 px-2 py-2">
-        <p className="text-muted-foreground mb-2 px-2 text-xs font-medium uppercase">
+      <Separator className="bg-sidebar-border" />
+      <ScrollArea className="flex-1 px-3 py-3">
+        <p className="mb-2 px-2 text-[0.65rem] font-semibold uppercase tracking-widest text-white/55">
           History
         </p>
         <nav className="space-y-0.5">
@@ -90,32 +103,39 @@ export function AppSidebar() {
                 key={c.id}
                 href={href}
                 className={cn(
-                  'group flex items-center gap-2 rounded-md px-2 py-2 text-sm',
-                  active ? 'bg-sidebar-accent' : 'hover:bg-sidebar-accent/60'
+                  'group flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors',
+                  active
+                    ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
+                    : 'text-white/85 hover:bg-sidebar-accent/80 hover:text-white'
                 )}
               >
-                <MessagesSquare className="size-4 shrink-0 opacity-60" />
+                <MessagesSquare className="size-4 shrink-0 opacity-70" />
                 <span className="min-w-0 flex-1 truncate">
                   {c.title ?? `Chat #${c.id}`}
                 </span>
                 <button
                   type="button"
-                  className="opacity-0 group-hover:opacity-100"
+                  className="rounded-md p-0.5 opacity-0 transition-opacity group-hover:opacity-100"
                   onClick={(e) => void remove(c.id, e)}
                   aria-label="Delete conversation"
                 >
-                  <Trash2 className="text-muted-foreground hover:text-destructive size-3.5" />
+                  <Trash2 className="size-3.5 text-white/60 hover:text-white" />
                 </button>
               </Link>
             );
           })}
         </nav>
       </ScrollArea>
-      <Separator />
-      <div className="space-y-1 p-3">
+      <Separator className="bg-sidebar-border" />
+      <div className="space-y-0.5 p-3">
         <Link
           href="/documents"
-          className="hover:bg-muted flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm"
+          className={cn(
+            'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors',
+            pathname === '/documents'
+              ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
+              : 'text-white/85 hover:bg-sidebar-accent/80 hover:text-white'
+          )}
         >
           <FileText className="size-4" />
           Knowledge
@@ -124,8 +144,10 @@ export function AppSidebar() {
           <Link
             href="/admin/feedback"
             className={cn(
-              'hover:bg-muted flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm',
-              pathname === '/admin/feedback' && 'bg-muted'
+              'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors',
+              pathname === '/admin/feedback'
+                ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
+                : 'text-white/85 hover:bg-sidebar-accent/80 hover:text-white'
             )}
           >
             <Table2 className="size-4" />
@@ -134,7 +156,7 @@ export function AppSidebar() {
         )}
         <Button
           variant="ghost"
-          className="w-full justify-start gap-2 text-muted-foreground"
+          className="mt-1 w-full justify-start gap-2.5 text-white/70 hover:bg-sidebar-accent/80 hover:text-white"
           onClick={() => {
             logout();
             router.replace('/login');

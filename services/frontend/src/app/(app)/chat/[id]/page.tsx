@@ -13,7 +13,7 @@ export default async function ChatPage({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col p-4">
+    <div className="flex h-full min-h-0 flex-col p-5 lg:p-6">
       <ChatPanel conversationId={conversationId} />
     </div>
   );

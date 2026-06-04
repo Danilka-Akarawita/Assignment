@@ -1,9 +1,10 @@
 import { AuthForm } from '@/components/auth/auth-form';
+import { AuthLayout } from '@/components/auth/auth-layout';
 
 export default function RegisterPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
+    <AuthLayout>
       <AuthForm mode="register" />
-    </main>
+    </AuthLayout>
   );
 }

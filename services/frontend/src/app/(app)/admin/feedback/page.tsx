@@ -53,15 +53,15 @@ function AdminFeedbackContent() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="flex h-full min-h-0 flex-col p-6">
-      <div className="mb-4">
+    <div className="flex h-full min-h-0 flex-col p-6 lg:p-8">
+      <header className="mb-5 rounded-2xl border border-brand-200/70 bg-card px-6 py-5 shadow-card">
         <h1 className="text-2xl font-semibold tracking-tight">Message feedback</h1>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-muted-foreground mt-1 text-sm">
           User ratings on AI answers ({total} total)
         </p>
-      </div>
+      </header>
 
-      <div className="min-h-0 flex-1 rounded-xl border bg-card">
+      <div className="min-h-0 flex-1 rounded-2xl border border-brand-200/70 bg-card shadow-card">
         {loading ? (
           <div className="text-muted-foreground flex h-48 items-center justify-center gap-2 text-sm">
             <Loader2 className="size-4 animate-spin" />
@@ -72,7 +72,7 @@ function AdminFeedbackContent() {
         ) : (
           <ScrollArea className="h-full max-h-[calc(100vh-12rem)]">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50 sticky top-0 border-b">
+              <thead className="sticky top-0 border-b bg-brand-100/60">
                 <tr className="text-left">
                   <th className="px-4 py-3 font-medium">When</th>
                   <th className="px-4 py-3 font-medium">User</th>

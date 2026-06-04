@@ -5,6 +5,7 @@ import { MarkdownContent } from '@/components/markdown/markdown-content';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/lib/types';
 import { useStreamingText } from '@/lib/hooks/use-streaming-text';
+import { Bot, User } from 'lucide-react';
 
 export function MessageBubble({
   message,
@@ -30,23 +31,31 @@ export function MessageBubble({
 
   return (
     <div
-      className={cn('flex w-full', isUser ? 'justify-end' : 'justify-start')}
+      className={cn('flex w-full gap-3', isUser ? 'flex-row-reverse' : 'flex-row')}
     >
       <div
         className={cn(
-          'max-w-[85%] rounded-2xl px-4 py-3',
+          'flex size-8 shrink-0 items-center justify-center rounded-lg',
+          isUser ? 'bg-brand-400 text-white' : 'bg-brand-100 text-brand-400'
+        )}
+      >
+        {isUser ? <User className="size-4" /> : <Bot className="size-4" />}
+      </div>
+      <div
+        className={cn(
+          'max-w-[min(85%,42rem)] rounded-2xl px-4 py-3 shadow-sm',
           isUser
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-muted border'
+            ? 'bg-brand-400 text-primary-foreground'
+            : 'border border-brand-200/80 bg-white'
         )}
       >
         {isUser ? (
-          <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
         ) : (
           <>
             <MarkdownContent content={displayed || '…'} />
             {isStreaming && (
-              <span className="bg-foreground/70 ml-0.5 inline-block h-4 w-1.5 animate-pulse" />
+              <span className="bg-brand-400/70 ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm" />
             )}
             {!isStreaming && message.id > 0 && onFeedback && (
               <MessageFeedback

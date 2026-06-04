@@ -7,6 +7,8 @@
     "prebuild": "prisma generate",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
+    "db:migrate": "prisma migrate deploy",
+    "db:push": "prisma db push",
     "test": "tsx --test tests/auth.test.ts"
   },
   "keywords": [],
@@ -25,6 +27,7 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.21.0",
+    "prisma": "^7.8.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "zod": "^4.4.3"
@@ -37,7 +40,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.9.1",
     "@types/supertest": "^7.2.0",
-    "prisma": "^7.8.0",
     "supertest": "^7.2.2",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.22.4",

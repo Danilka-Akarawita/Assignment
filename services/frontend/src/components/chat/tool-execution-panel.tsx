@@ -54,11 +54,11 @@ export function ToolExecutionPanel({
 
   if (!agentRun && !isActive) {
     return (
-      <Card className="h-full border-dashed">
+      <Card className="h-full border-dashed border-brand-200/80 bg-brand-50/40 shadow-card">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Tool execution</CardTitle>
+          <CardTitle className="text-sm font-semibold">Tool execution</CardTitle>
         </CardHeader>
-        <CardContent className="text-muted-foreground text-sm">
+        <CardContent className="text-muted-foreground text-sm leading-relaxed">
           Send a message to see the agent plan and tool steps here.
         </CardContent>
       </Card>
@@ -66,10 +66,10 @@ export function ToolExecutionPanel({
   }
 
   return (
-    <Card className="flex h-full flex-col">
-      <CardHeader className="pb-2">
+    <Card className="flex h-full flex-col border-brand-200/70 shadow-card">
+      <CardHeader className="border-b border-brand-200/50 bg-brand-50/50 pb-3">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-sm font-medium">Tool execution</CardTitle>
+          <CardTitle className="text-sm font-semibold">Tool execution</CardTitle>
           {agentRun && (
             <Badge variant={agentRun.status === 'FAILED' ? 'destructive' : 'secondary'}>
               {isActive && !['COMPLETED', 'FAILED'].includes(agentRun.status) && (
@@ -83,12 +83,12 @@ export function ToolExecutionPanel({
           <p className="text-muted-foreground text-xs">Starting agent run…</p>
         )}
       </CardHeader>
-      <CardContent className="min-h-0 flex-1 pt-0">
+      <CardContent className="min-h-0 flex-1 pt-4">
         <ScrollArea className="h-[min(420px,50vh)] pr-3">
           <ul className="space-y-3">
             {todos.length === 0 && isActive && (
               <li className="text-muted-foreground flex items-center gap-2 text-sm">
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin text-brand-400" />
                 Planning…
               </li>
             )}
@@ -105,13 +105,14 @@ export function ToolExecutionPanel({
                 <li
                   key={todo.id}
                   className={cn(
-                    'rounded-lg border p-3 text-sm',
-                    todo.status === 'IN_PROGRESS' && 'border-primary/50 bg-muted/40'
+                    'rounded-xl border border-brand-200/60 p-3 text-sm transition-colors',
+                    todo.status === 'IN_PROGRESS' &&
+                      'border-brand-300/60 bg-brand-100/50 shadow-sm'
                   )}
                 >
                   <div className="mb-1 flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 font-medium">
-                      <Icon className="text-muted-foreground size-4 shrink-0" />
+                      <Icon className="text-brand-400 size-4 shrink-0" />
                       <span>
                         {todo.position}. {todo.title}
                       </span>
@@ -129,7 +130,9 @@ export function ToolExecutionPanel({
                     <p className="text-muted-foreground text-xs">{todo.description}</p>
                   )}
                   {result && (
-                    <p className="mt-2 rounded bg-muted/60 p-2 text-xs">{result}</p>
+                    <p className="mt-2 rounded-lg bg-brand-100/60 p-2.5 text-xs leading-relaxed">
+                      {result}
+                    </p>
                   )}
                 </li>
               );

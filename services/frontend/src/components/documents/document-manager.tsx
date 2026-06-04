@@ -93,15 +93,15 @@ export function DocumentManager() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Knowledge management</h1>
-        <p className="text-muted-foreground text-sm">
+    <div className="mx-auto max-w-4xl space-y-6 p-6 lg:p-8">
+      <header className="rounded-2xl border border-brand-200/70 bg-card px-6 py-5 shadow-card">
+        <h1 className="text-2xl font-semibold tracking-tight">Knowledge management</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
           Upload documents for the agent to search via knowledge_retrieval.
         </p>
-      </div>
+      </header>
 
-      <Card>
+      <Card className="border-brand-200/70 shadow-card">
         <CardHeader>
           <CardTitle className="text-base">Upload document</CardTitle>
           <CardDescription>PDF or plain text, max 10MB</CardDescription>
@@ -109,7 +109,7 @@ export function DocumentManager() {
         <CardContent>
           <Label
             htmlFor="file-upload"
-            className="border-muted-foreground/30 hover:bg-muted/50 flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed p-8"
+            className="border-brand-300/50 hover:bg-brand-100/40 flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed p-8 transition-colors"
           >
             {uploading ? (
               <Loader2 className="size-8 animate-spin opacity-50" />
@@ -131,7 +131,7 @@ export function DocumentManager() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-brand-200/70 shadow-card">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Your documents</CardTitle>
           <Button variant="outline" size="sm" onClick={() => void load()}>
@@ -151,7 +151,7 @@ export function DocumentManager() {
               {documents.map((doc) => (
                 <li
                   key={doc.id}
-                  className="flex items-start justify-between gap-4 rounded-lg border p-3"
+                  className="flex items-start justify-between gap-4 rounded-xl border border-brand-200/60 p-4 transition-colors hover:bg-brand-50/50"
                 >
                   <div className="min-w-0">
                     <p className="truncate font-medium">
@@ -183,7 +183,7 @@ export function DocumentManager() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-brand-200/70 shadow-card">
         <CardHeader>
           <CardTitle className="text-base">Semantic search</CardTitle>
           <CardDescription>Test the knowledge API directly</CardDescription>
