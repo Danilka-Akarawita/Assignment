@@ -1,4 +1,5 @@
 import type { ChunkMetadata } from './chunk-metadata.js';
+import type { SearchMetadataFilters } from './search-filters.js';
 
 export interface SearchResult {
   chunk_id: number;
@@ -13,6 +14,11 @@ export interface SearchResult {
 
 export interface SearchResponse {
   query: string;
+  total: number;
+  appliedFilters: SearchMetadataFilters | null;
+  retrieval: {
+    metadataFallback: boolean;
+  };
   results: Array<{
     chunkId: number;
     chunkIndex: number;
@@ -23,5 +29,4 @@ export interface SearchResponse {
     title: string | null;
     similarity: number;
   }>;
-  total: number;
 }

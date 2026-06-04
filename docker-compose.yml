@@ -86,6 +86,7 @@ services:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       REDIS_URL: redis://redis:6379
       EMBEDDING_CACHE_ENABLED: "true"
+      METADATA_QUERY_EXTRACTION_ENABLED: "true"
     env_file:
       - ./services/knowledge-service/.env
     networks:

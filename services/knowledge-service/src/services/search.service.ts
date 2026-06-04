@@ -3,6 +3,11 @@ import type { ChunkMetadata } from '../types/chunk-metadata.js';
 import type { SearchResponse } from '../types/search.js';
 import { logger } from '../utils/logger.js';
 import { EmbeddingService } from './embedding.service.js';
+import {
+  filtersToVectorParams,
+  mergeSearchFilters,
+  MetadataQueryService,
+} from './metadata-query.service.js';
 
 export interface SearchOptions {
   query: string;
@@ -11,10 +16,13 @@ export interface SearchOptions {
   documentId?: number;
   filters?: Partial<ChunkMetadata>;
   minSimilarity?: number;
+  /** When false, skip LLM metadata extraction from the query. */
+  useMetadataExtraction?: boolean;
 }
 
 export class SearchService {
   private embedding = new EmbeddingService();
+  private metadataQuery = new MetadataQueryService();
 
   async search(options: SearchOptions): Promise<SearchResponse> {
     const {
@@ -24,34 +32,65 @@ export class SearchService {
       documentId,
       filters,
       minSimilarity = 0.5,
+      useMetadataExtraction = true,
     } = options;
+
+    const extracted =
+      useMetadataExtraction && process.env.METADATA_QUERY_EXTRACTION_ENABLED !== 'false'
+        ? await this.metadataQuery.extractFromQuery(query)
+        : {};
+
+    const mergedFilters = mergeSearchFilters(filters, extracted);
+    const metadataFilterParams = filtersToVectorParams(mergedFilters);
 
     const queryEmbedding = await this.embedding.embedQuery(query);
 
-    const searchParams: VectorSearchParams = {
+    const baseParams: VectorSearchParams = {
       queryEmbedding,
       userId,
       limit,
       minSimilarity,
+      ...metadataFilterParams,
     };
+    if (documentId !== undefined) baseParams.documentId = documentId;
 
-    if (documentId !== undefined) searchParams.documentId = documentId;
-    if (filters?.topics?.length) searchParams.topics = filters.topics;
-    if (filters?.keywords?.length) searchParams.keywords = filters.keywords;
-    if (filters?.entities?.length) searchParams.entities = filters.entities;
-    if (filters?.contentType) searchParams.contentType = filters.contentType;
-    if (filters?.section) searchParams.section = filters.section;
+    let results = await vectorSearch(baseParams);
+    let metadataFallback = false;
 
-    const results = await vectorSearch(searchParams);
+    if (results.length === 0 && Object.keys(metadataFilterParams).length > 0) {
+      metadataFallback = true;
+      logger.info(
+        { userId, filters: mergedFilters },
+        'No hits with metadata filters — retrying vector search without metadata',
+      );
+      const fallbackParams: VectorSearchParams = {
+        queryEmbedding,
+        userId,
+        limit,
+        minSimilarity,
+      };
+      if (documentId !== undefined) fallbackParams.documentId = documentId;
+      results = await vectorSearch(fallbackParams);
+    }
 
     logger.info(
-      { userId, query: query.slice(0, 80), resultCount: results.length },
-      'Vector search completed'
+      {
+        userId,
+        query: query.slice(0, 80),
+        resultCount: results.length,
+        metadataFilters: mergedFilters,
+        metadataFallback,
+      },
+      'Knowledge search completed',
     );
 
     return {
       query,
       total: results.length,
+      appliedFilters: mergedFilters ?? null,
+      retrieval: {
+        metadataFallback,
+      },
       results: results.map((row) => ({
         chunkId: row.chunk_id,
         chunkIndex: row.chunk_index,

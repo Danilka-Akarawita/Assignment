@@ -47,25 +47,70 @@ export function shouldBlockFailedAnswers(): boolean {
   return blockOnFail();
 }
 
+function logJudgeOutcome(
+  result: AnswerJudgeResult,
+  extra: Record<string, unknown> = {},
+): void {
+  logger.info(
+    {
+      ...extra,
+      judge: {
+        score: result.score,
+        verdict: result.verdict,
+        reason: result.reason,
+        passed: result.passed,
+        minScore: minScore(),
+      },
+    },
+    'Answer judge result',
+  );
+}
+
 export async function judgeFinalAnswer(params: {
   userQuery: string;
   answer: string;
   executionSummary?: string;
   agentRunId?: number;
 }): Promise<AnswerJudgeResult> {
+  const logCtx = {
+    agentRunId: params.agentRunId,
+    userQueryPreview: params.userQuery.slice(0, 120),
+  };
+
   if (!judgeEnabled()) {
-    return { passed: true, score: 1, verdict: 'unknown', reason: 'Judge disabled' };
+    const result = {
+      passed: true,
+      score: 1,
+      verdict: 'unknown' as const,
+      reason: 'Judge disabled',
+    };
+    logJudgeOutcome(result, { ...logCtx, skipped: true });
+    return result;
   }
 
   const trimmedAnswer = params.answer.trim();
   if (!trimmedAnswer) {
-    return { passed: false, score: 0, verdict: 'wrong', reason: 'Empty assistant answer' };
+    const result = {
+      passed: false,
+      score: 0,
+      verdict: 'wrong' as const,
+      reason: 'Empty assistant answer',
+    };
+    logJudgeOutcome(result, logCtx);
+    return result;
   }
 
   const client = getGenAI();
   if (!client) {
-    logger.warn('Answer judge skipped: no GEMINI_API_KEY');
-    return { passed: true, score: 1, verdict: 'unknown', reason: 'No API key for judge' };
+    logger.warn(logCtx, 'Answer judge skipped: no GEMINI_API_KEY');
+    const result = {
+      passed: true,
+      score: 1,
+      verdict: 'unknown' as const,
+      reason: 'No API key for judge',
+    };
+    logJudgeOutcome(result, { ...logCtx, skipped: true });
+    return result;
   }
 
   const model = process.env.GUARDRAIL_JUDGE_MODEL ?? GEMINI_MODEL;
@@ -103,6 +148,16 @@ export async function judgeFinalAnswer(params: {
       reason?: string;
     };
 
+    logger.debug(
+      {
+        ...logCtx,
+        model,
+        judgeLlmOutput: parsed,
+        rawLength: raw.length,
+      },
+      'Answer judge LLM raw JSON',
+    );
+
     const score =
       typeof parsed.score === 'number' ? Math.min(1, Math.max(0, parsed.score)) : 0.5;
     const verdict =
@@ -123,14 +178,18 @@ export async function judgeFinalAnswer(params: {
       { agentRunId: params.agentRunId }
     );
 
+    logJudgeOutcome(result, logCtx);
+
     return result;
   } catch (err) {
-    logger.warn({ err }, 'Answer judge LLM call failed');
-    return {
+    logger.warn({ err, ...logCtx }, 'Answer judge LLM call failed');
+    const result = {
       passed: true,
       score: 1,
-      verdict: 'unknown',
+      verdict: 'unknown' as const,
       reason: 'Judge error — fail open',
     };
+    logJudgeOutcome(result, { ...logCtx, error: true });
+    return result;
   }
 }

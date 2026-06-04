@@ -130,8 +130,16 @@ export const synthesisAfterModelJudge: SingleAfterModelCallback = async ({
 
   if (!judge.passed) {
     logger.info(
-      { score: judge.score, verdict: judge.verdict, reason: judge.reason },
-      'Guardrail: answer failed judge'
+      {
+        agentRunId,
+        passed: judge.passed,
+        score: judge.score,
+        verdict: judge.verdict,
+        reason: judge.reason,
+        blockOnFail: shouldBlockFailedAnswers(),
+        appendWarning: process.env.GUARDRAIL_APPEND_WARNING === 'true',
+      },
+      'Guardrail: answer failed judge — applying policy',
     );
 
     if (shouldBlockFailedAnswers()) {
@@ -169,6 +177,17 @@ export const synthesisAfterModelJudge: SingleAfterModelCallback = async ({
         },
       };
     }
+  } else {
+    logger.info(
+      {
+        agentRunId,
+        passed: judge.passed,
+        score: judge.score,
+        verdict: judge.verdict,
+        reason: judge.reason,
+      },
+      'Guardrail: answer passed judge — showing synthesis answer',
+    );
   }
 
   return undefined;

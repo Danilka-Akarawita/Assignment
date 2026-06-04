@@ -14,6 +14,7 @@ export const searchSchema = z.object({
       entities: z.array(z.string()).optional(),
     })
     .optional(),
+  useMetadataExtraction: z.boolean().optional().default(true),
 });
 
 export const updateMetadataSchema = z.object({

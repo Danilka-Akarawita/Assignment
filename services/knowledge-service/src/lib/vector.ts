@@ -1,21 +1,21 @@
-import type { SearchResult } from '../types/search.js';
-import { prisma } from './prisma.js';
-import { logger } from '../utils/logger.js';
+import type { SearchResult } from "../types/search.js";
+import { prisma } from "./prisma.js";
+import { logger } from "../utils/logger.js";
 
-const EF_SEARCH = parseInt(process.env.HNSW_EF_SEARCH ?? '100', 10);
+const EF_SEARCH = parseInt(process.env.HNSW_EF_SEARCH ?? "100", 10);
 
 function toVectorLiteral(values: number[]): string {
-  return `[${values.join(',')}]`;
+  return `[${values.join(",")}]`;
 }
 
 export async function setChunkEmbedding(
   chunkId: number,
-  embedding: number[]
+  embedding: number[],
 ): Promise<void> {
   await prisma.$executeRawUnsafe(
     `UPDATE knowledge_document_chunks SET embedding = $1::vector WHERE id = $2`,
     toVectorLiteral(embedding),
-    chunkId
+    chunkId,
   );
 }
 
@@ -37,7 +37,7 @@ export interface VectorSearchParams {
 }
 
 export async function vectorSearch(
-  params: VectorSearchParams
+  params: VectorSearchParams,
 ): Promise<SearchResult[]> {
   const {
     queryEmbedding,
@@ -55,9 +55,9 @@ export async function vectorSearch(
   await setHnswEfSearch();
 
   const conditions: string[] = [
-    'd.user_id = $2',
+    "d.user_id = $2",
     "d.status = 'COMPLETED'",
-    'c.embedding IS NOT NULL',
+    "c.embedding IS NOT NULL",
   ];
   const values: unknown[] = [toVectorLiteral(queryEmbedding), userId];
   let paramIndex = 3;
@@ -118,19 +118,24 @@ export async function vectorSearch(
       1 - (c.embedding <=> $1::vector) AS similarity
     FROM knowledge_document_chunks c
     INNER JOIN knowledge_documents d ON d.id = c.document_id
-    WHERE ${conditions.join(' AND ')}
+    WHERE ${conditions.join(" AND ")}
     ORDER BY c.embedding <=> $1::vector
     LIMIT $${paramIndex}
   `;
 
-  logger.debug({ userId, documentId, limit, topics, keywords }, 'Running vector search');
+  logger.debug(
+    { userId, documentId, limit, topics, keywords },
+    "Running vector search",
+  );
 
   return prisma.$queryRawUnsafe<SearchResult[]>(sql, ...values);
 }
 
-export async function deleteDocumentEmbeddings(documentId: number): Promise<void> {
+export async function deleteDocumentEmbeddings(
+  documentId: number,
+): Promise<void> {
   await prisma.$executeRawUnsafe(
     `UPDATE knowledge_document_chunks SET embedding = NULL WHERE document_id = $1`,
-    documentId
+    documentId,
   );
 }

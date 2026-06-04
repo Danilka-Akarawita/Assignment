@@ -75,6 +75,8 @@ The agent can run **read-only SQL** via `tool-execution-service` (`sql_query` to
 
 **Current implementation (Phase A):** `tool-execution-service` generates SQL with OpenAI (`generateObject` via [AI SDK](https://ai-sdk.dev)) from a natural language `question` and schema catalog; the agent must not pass raw SQL. Set `OPENAI_API_KEY` and optional `SQL_GENERATOR_MODEL` (default `gpt-4.1-mini`) in tool-execution `.env`.
 
+**Knowledge retrieval:** extract metadata filters from the query → pgvector search (with metadata fallback). See [docs/KNOWLEDGE_RETRIEVAL.md](docs/KNOWLEDGE_RETRIEVAL.md).
+
 **Principles**
 
 1. **Generate SQL in the app**, not inside Postgres — every generated query passes `validateReadOnlySql` twice (right after OpenAI, again before execute). `DELETE`, `UPDATE`, `INSERT`, DDL, `SELECT INTO`, and `FOR UPDATE` are rejected and never run ([tool-execution-service](services/tool-execution-service/src/services/sql-validator.ts)).

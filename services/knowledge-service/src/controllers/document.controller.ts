@@ -108,6 +108,7 @@ export const searchDocuments = async (req: AuthRequest, res: Response) => {
       userId: req.user.id,
       limit: input.limit,
       minSimilarity: input.minSimilarity,
+      useMetadataExtraction: input.useMetadataExtraction,
     };
     if (input.documentId !== undefined) searchInput.documentId = input.documentId;
     if (input.filters !== undefined) {
