@@ -18,7 +18,7 @@ permissions:
 env:
   NODE_VERSION: "22"
   REGISTRY: ghcr.io
-  
+  IMAGE_OWNER: danilka-akarawita
 
 jobs:
   release:
@@ -121,6 +121,6 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: ${{ github.event_name == 'push' && needs.release.outputs.released == 'true' }}
-          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.service }}:${{ steps.version.outputs.value }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.service }}:${{ steps.version.outputs.value }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
