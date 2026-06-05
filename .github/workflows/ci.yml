@@ -122,5 +122,6 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: ${{ github.event_name == 'push' && needs.release.outputs.released == 'true' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.service }}:${{ steps.version.outputs.value }}
+          outputs: ${{ github.event_name == 'push' && needs.release.outputs.released == 'true' && 'type=image,push=true' || 'type=cacheonly' }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
