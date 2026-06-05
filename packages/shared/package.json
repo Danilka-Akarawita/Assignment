@@ -16,7 +16,6 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "ai-assistant": "file:../..",
     "amqplib": "^0.10.9",
     "jsonwebtoken": "^9.0.3"
   },

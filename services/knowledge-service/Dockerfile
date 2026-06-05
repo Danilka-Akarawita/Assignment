@@ -3,7 +3,7 @@
 FROM node:22-alpine AS shared-builder
 WORKDIR /packages/shared
 COPY packages/shared/package*.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts
 COPY packages/shared/ ./
 RUN npm run build && npm prune --omit=dev
 
@@ -11,13 +11,15 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 COPY packages/shared /packages/shared
 COPY --from=shared-builder /packages/shared/dist /packages/shared/dist
+COPY --from=shared-builder /packages/shared/node_modules /packages/shared/node_modules
 COPY services/knowledge-service/package*.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY packages/shared /packages/shared
 COPY --from=shared-builder /packages/shared/dist /packages/shared/dist
+COPY --from=shared-builder /packages/shared/node_modules /packages/shared/node_modules
 COPY --from=deps /app/node_modules ./node_modules
 COPY services/knowledge-service/prisma ./prisma
 COPY services/knowledge-service/prisma.config.ts ./
@@ -33,7 +35,7 @@ COPY packages/shared /packages/shared
 COPY --from=shared-builder /packages/shared/dist /packages/shared/dist
 COPY --from=shared-builder /packages/shared/node_modules /packages/shared/node_modules
 COPY services/knowledge-service/package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 COPY services/knowledge-service/prisma ./prisma
 COPY services/knowledge-service/prisma.config.ts ./
 RUN npx prisma generate
