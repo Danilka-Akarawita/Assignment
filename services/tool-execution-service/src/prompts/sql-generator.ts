@@ -15,10 +15,16 @@ Rules:
 - For string filters on user-facing text, prefer ILIKE with LOWER() on both sides when appropriate.
 
 Multi-tenant (required):
-- Current user_id for this request: {userId}
-- Tables knowledge_documents and knowledge_document_chunks are per-user. ALWAYS include: WHERE ... user_id = {userId} (or d.user_id = {userId} when aliased).
-- On knowledge_documents, prefer status = 'COMPLETED' unless the question needs other statuses.
-- knowledge_document_chunks links to knowledge_documents via document_id.
+- The server binds the authenticated user's id as PostgreSQL parameter $1. Never embed a numeric user id literal in the query.
+- Tables knowledge_documents and knowledge_document_chunks are per-user. ALWAYS include: WHERE ... user_id = $1 (or d.user_id = $1 when aliased).
+- On knowledge_documents, status is enum DocumentStatus — always quote values: status = 'COMPLETED' (never status = COMPLETED).
+- knowledge_document_chunks has no user_id column; join knowledge_documents and filter d.user_id = $1.
+- For "how many documents" questions, query knowledge_documents (not chunks).
+
+Example document count:
+SELECT count(*) AS document_count
+FROM knowledge_documents
+WHERE user_id = $1 AND status = 'COMPLETED'
 
 Knowledge / vectors:
 - knowledge_document_chunks.embedding is pgvector. Similarity search usually needs a vector literal from the app; for counts, listings, and metadata prefer columns like chunk_text, document_id, id without vector operators unless the question is explicitly about similarity.
@@ -40,9 +46,9 @@ function formatTableDDL(catalog: DatabaseSchemaCatalog): string {
 
 export function buildSqlGeneratorSystemPrompt(
   catalog: DatabaseSchemaCatalog,
-  userId: number,
+  _userId: number,
 ): string {
-  const rules = STATIC_RULES.replace(/\{userId\}/g, String(userId));
+  const rules = STATIC_RULES;
   const schemaBlock =
     catalog.tables.length > 0
       ? `Database schema (allowed tables):\n\n${formatTableDDL(catalog)}`

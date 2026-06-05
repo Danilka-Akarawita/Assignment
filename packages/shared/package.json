@@ -12,9 +12,11 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build"
   },
   "dependencies": {
+    "ai-assistant": "file:../..",
     "amqplib": "^0.10.9",
     "jsonwebtoken": "^9.0.3"
   },

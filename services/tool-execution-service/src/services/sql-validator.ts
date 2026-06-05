@@ -1,6 +1,7 @@
 /**
  * Mandatory sanitization gate for all SQL (including LLM-generated).
  * Nothing executes on Postgres without passing validateReadOnlySql().
+ * user_id is always bound as $1 server-side — never accept numeric literals.
  */
 
 const FORBIDDEN_KEYWORDS =
@@ -15,6 +16,10 @@ const LOCKING_READ_CLAUSE =
 const SELECT_INTO = /\bSELECT\b[\s\S]*\bINTO\b/i;
 
 const KNOWLEDGE_TABLE_PATTERN = /\bknowledge_(documents|document_chunks)\b/i;
+
+/** user_id must be bound via $1, never inlined as a literal. */
+const USER_ID_PARAM_FILTER = /\b(?:\w+\.)?user_id\s*=\s*\$1\b/i;
+const USER_ID_LITERAL_FILTER = /\b(?:\w+\.)?user_id\s*=\s*\d+/i;
 
 export class SqlValidationError extends Error {
   constructor(message: string) {
@@ -31,7 +36,7 @@ export function normalizeSql(query: string): string {
  * Reject any non-read-only SQL before execution.
  * @throws SqlValidationError when the query is not a safe SELECT/WITH read.
  */
-export function validateReadOnlySql(query: string, userId: number): string {
+export function validateReadOnlySql(query: string, _userId: number): string {
   const normalized = normalizeSql(query);
 
   if (!normalized) {
@@ -70,11 +75,16 @@ export function validateReadOnlySql(query: string, userId: number): string {
     throw new SqlValidationError('Query must start with SELECT or WITH');
   }
 
+  if (USER_ID_LITERAL_FILTER.test(normalized)) {
+    throw new SqlValidationError(
+      'Numeric user_id literals are not allowed; use parameter $1 (bound server-side)',
+    );
+  }
+
   if (KNOWLEDGE_TABLE_PATTERN.test(normalized)) {
-    const userFilter = new RegExp(`\\buser_id\\s*=\\s*${userId}\\b`, 'i');
-    if (!userFilter.test(normalized)) {
+    if (!USER_ID_PARAM_FILTER.test(normalized)) {
       throw new SqlValidationError(
-        `Queries on knowledge tables must filter by user_id = ${userId}`,
+        'Queries on knowledge tables must filter by user_id = $1 (bound server-side)',
       );
     }
   }

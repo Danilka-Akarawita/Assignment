@@ -1,6 +1,5 @@
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
-import type { AuthRequest } from '../middleware/auth.js';
 import { executeToolSchema } from '../schemas/tool.schema.js';
 import { SqlService } from '../services/sql.service.js';
 import { ToolExecutorService } from '../services/tool-executor.service.js';
@@ -10,11 +9,11 @@ import { logger } from '../utils/logger.js';
 const executor = new ToolExecutorService();
 const sqlService = new SqlService();
 
-export const listTools = (_req: AuthRequest, res: Response) => {
+export const listTools = (_req: Request, res: Response) => {
   res.json({ tools: TOOL_DEFINITIONS });
 };
 
-export const getSqlSchema = async (_req: AuthRequest, res: Response) => {
+export const getSqlSchema = async (_req: Request, res: Response) => {
   try {
     const catalog = await sqlService.getSchemaCatalog();
     res.json(catalog);
@@ -24,7 +23,7 @@ export const getSqlSchema = async (_req: AuthRequest, res: Response) => {
   }
 };
 
-export const executeTool = async (req: AuthRequest, res: Response) => {
+export const executeTool = async (req: Request, res: Response) => {
   try {
     if (!req.user || !req.authToken) {
       return res.status(401).json({ error: 'Unauthorized' });

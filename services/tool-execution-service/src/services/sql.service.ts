@@ -1,3 +1,4 @@
+import { Prisma } from "../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
 import type { DatabaseSchemaCatalog, SqlQueryResult } from "../types/tools.js";
 import { logger } from "../utils/logger.js";
@@ -93,12 +94,18 @@ export class SqlService {
       "Executing read-only SQL",
     );
 
+    // SET LOCAL does not accept prepared-statement parameters; value is server-controlled.
+    const timeoutMs = Number.isFinite(STATEMENT_TIMEOUT_MS)
+      ? STATEMENT_TIMEOUT_MS
+      : 5000;
     await prisma.$executeRawUnsafe(
-      `SET LOCAL statement_timeout = '${STATEMENT_TIMEOUT_MS}ms'`,
+      `SET LOCAL statement_timeout = '${timeoutMs}ms'`,
     );
 
-    const rows =
-      await prisma.$queryRawUnsafe<Record<string, unknown>[]>(safeQuery);
+    const rows = await prisma.$queryRawUnsafe<Record<string, unknown>[]>(
+      safeQuery,
+      userId,
+    );
 
     const limited = rows.slice(0, MAX_ROWS);
     const columns = limited.length > 0 ? Object.keys(limited[0] ?? {}) : [];
@@ -114,11 +121,11 @@ export class SqlService {
   }
 
   async getSchemaCatalog(): Promise<DatabaseSchemaCatalog> {
-    const schemaList = ALLOWED_SCHEMAS.map(
-      (schema: string) => `'${schema.replace(/'/g, "''")}'`,
-    ).join(", ");
+    const schemaList = Prisma.join(
+      ALLOWED_SCHEMAS.map((schema: string) => Prisma.sql`${schema}`),
+    );
 
-    const columns = await prisma.$queryRawUnsafe<
+    const columns = await prisma.$queryRaw<
       Array<{
         table_schema: string;
         table_name: string;
@@ -128,7 +135,7 @@ export class SqlService {
         is_nullable: string;
       }>
     >(
-      `
+      Prisma.sql`
       SELECT
         c.table_schema,
         c.table_name,
@@ -190,7 +197,7 @@ SELECT
   1 - (c.embedding <=> '[0.1,0.2,...]'::vector) AS similarity
 FROM knowledge_document_chunks c
 INNER JOIN knowledge_documents d ON d.id = c.document_id
-WHERE d.user_id = :userId
+WHERE d.user_id = $1
   AND d.status = 'COMPLETED'
   AND c.embedding IS NOT NULL
 ORDER BY c.embedding <=> '[0.1,0.2,...]'::vector

@@ -13,7 +13,7 @@ describe('sql-validator', () => {
     );
   });
 
-  it('requires user_id on knowledge tables', () => {
+  it('requires user_id = $1 on knowledge tables', () => {
     assert.throws(
       () =>
         validateReadOnlySql(
@@ -24,12 +24,23 @@ describe('sql-validator', () => {
     );
   });
 
-  it('allows read query with user filter', () => {
+  it('rejects literal user_id on knowledge tables', () => {
+    assert.throws(
+      () =>
+        validateReadOnlySql(
+          'SELECT id FROM knowledge_documents WHERE user_id = 42 LIMIT 5',
+          42,
+        ),
+      SqlValidationError,
+    );
+  });
+
+  it('allows read query with parameterized user filter', () => {
     const sql = validateReadOnlySql(
-      'SELECT id FROM knowledge_documents WHERE user_id = 42 LIMIT 5',
+      'SELECT id FROM knowledge_documents WHERE user_id = $1 LIMIT 5',
       42,
     );
-    assert.match(sql, /user_id\s*=\s*42/i);
+    assert.match(sql, /user_id\s*=\s*\$1/i);
   });
 
   it('rejects UPDATE even when disguised in a longer statement', () => {
@@ -85,7 +96,7 @@ describe('sql-validator', () => {
 
   it('allows WITH ... SELECT', () => {
     const sql = validateReadOnlySql(
-      'WITH c AS (SELECT id FROM knowledge_documents WHERE user_id = 42) SELECT count(*) FROM c',
+      'WITH c AS (SELECT id FROM knowledge_documents WHERE user_id = $1) SELECT count(*) FROM c',
       42,
     );
     assert.match(sql, /^WITH\b/i);
