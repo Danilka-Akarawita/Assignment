@@ -123,7 +123,7 @@ describe('ai-gateway-service', () => {
     const originalRun = AgentOrchestratorService.prototype.run;
 
     AgentOrchestratorService.prototype.resolveUserMessage = async function () {
-      return { resolvedQuery: 'What is the refund policy for orders?', historySummary: 'User asking about refund policy' };
+      return { resolvedQuery: 'What is the refund policy for orders?', historySummary: 'User asking about refund policy', priorHistory: [] };
     };
     AgentOrchestratorService.prototype.run = async function (input) {
       const plan = { goal: 'explain refund policy', todos: [{ title: 'Check policy details' }, { title: 'Provide timeline' }] };
@@ -169,7 +169,7 @@ describe('ai-gateway-service', () => {
     const originalRun = AgentOrchestratorService.prototype.run;
 
     AgentOrchestratorService.prototype.resolveUserMessage = async function () {
-      return { resolvedQuery: 'How can I track my order status?', historySummary: 'User inquiring about order tracking' };
+      return { resolvedQuery: 'How can I track my order status?', historySummary: 'User inquiring about order tracking', priorHistory: [] };
     };
     AgentOrchestratorService.prototype.run = async function (input) {
       const plan = { goal: 'provide order tracking instructions', todos: [{ title: 'Identify tracking method' }, { title: 'Provide step-by-step guide' }] };
@@ -215,7 +215,7 @@ describe('ai-gateway-service', () => {
     const originalRun = AgentOrchestratorService.prototype.run;
 
     AgentOrchestratorService.prototype.resolveUserMessage = async function () {
-      return { resolvedQuery: 'Can I cancel my pending order?', historySummary: 'User wants to cancel order' };
+      return { resolvedQuery: 'Can I cancel my pending order?', historySummary: 'User wants to cancel order', priorHistory: [] };
     };
     AgentOrchestratorService.prototype.run = async function (input) {
       const plan = { goal: 'explain cancellation policy', todos: [{ title: 'Check cancellation window' }, { title: 'Provide contact info if needed' }] };
@@ -262,7 +262,7 @@ describe('ai-gateway-service', () => {
     const originalRun = AgentOrchestratorService.prototype.run;
 
     AgentOrchestratorService.prototype.resolveUserMessage = async function () {
-      return { resolvedQuery: 'What payment methods are accepted?', historySummary: 'User asking about payment options' };
+      return { resolvedQuery: 'What payment methods are accepted?', historySummary: 'User asking about payment options', priorHistory: [] };
     };
     AgentOrchestratorService.prototype.run = async function (input) {
       const plan = { goal: 'list accepted payment methods', todos: [{ title: 'Compile payment methods' }, { title: 'Highlight security' }] };

@@ -1,8 +1,7 @@
-import type { NextFunction, Response } from 'express';
-import type { AuthRequest } from './auth.js';
+import type { NextFunction, Request, Response } from 'express';
 
 export const requireRole = (roles: string[]) => {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }

@@ -130,31 +130,14 @@ export class ChatService {
   }): Promise<SendMessageResult> {
     const sessionId = `conv-${params.conversationId}-run-${params.agentRunId}`;
 
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: params.conversationId },
-      include: {
-        messages: { orderBy: { createdAt: 'desc' }, take: 10 },
-      },
-    });
-
-    const recentHistory = (conversation?.messages ?? [])
-      .map(({ role, content }) => ({ role, content }))
-      .reverse();
-
-    const previousSummary = conversation?.historySummary ?? '';
-
-    logger.info(
-      { conversationId: params.conversationId, previousSummary, recentHistory },
-      '[ChatService] Conversation context passed to agent'
-    );
-
-    const { resolvedQuery, historySummary } = await this.orchestrator.resolveUserMessage({
-      userId: params.userId,
-      sessionId: `${sessionId}-rewrite`,
-      userMessage: params.content,
-      previousSummary,
-      history: recentHistory,
-    });
+    const { resolvedQuery, historySummary, priorHistory } =
+      await this.orchestrator.resolveUserMessage({
+        userId: params.userId,
+        conversationId: params.conversationId,
+        userMessageId: params.userMessageId,
+        sessionId: `${sessionId}-rewrite`,
+        userMessage: params.content,
+      });
 
     try {
       const result = await this.orchestrator.run({
@@ -182,7 +165,7 @@ export class ChatService {
       });
 
       const updatedHistory = [
-        ...recentHistory,
+        ...priorHistory,
         { role: 'USER', content: params.content },
         { role: 'ASSISTANT', content: assistantMessage.content },
       ].slice(-10);

@@ -7,6 +7,7 @@
   "scripts": {
     "prebuild": "npm run build --prefix ../../packages/shared && prisma generate",
     "build": "tsc -p tsconfig.json",
+    "db:migrate": "prisma migrate deploy",
     "start": "node dist/index.js",
     "test": "tsx --test tests/tools.test.ts tests/sql-validator.test.ts tests/sql-execute.test.ts"
   },

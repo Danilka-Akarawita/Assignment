@@ -1,8 +1,4 @@
-/**
- * Centralized LLM prompts and user-facing guardrail messages for ai-gateway-service.
- */
 
-// —— Agent system instructions ——
 
 export const PLAN_AGENT_INSTRUCTION = `
 You are a planning agent.
@@ -41,8 +37,9 @@ Rules:
   - sql_query
   - calculator
   - none
-- If the user asks about their resume, CV, PDF, uploaded file, document, or anything listed in the catalog above, include at least one todo with toolHint knowledge_retrieval.
+- If the user asks about their anything listed in the catalog above, include at least one todo with toolHint knowledge_retrieval.
 - Do not execute any tool.
+-Do not use pretrained knowledge of the model. Base the plan solely on the user request and the document catalog.
 - Do not explain the plan.
 - Output JSON only.
 `.trim();
@@ -111,36 +108,37 @@ Output JSON only. No text outside the JSON object.
 `.trim();
 
 export const QUERY_REWRITER_AGENT_INSTRUCTION = `
-You are given a conversation summary and the last 10 user/assistant messages.
-Use that context to rewrite the current user query into a fully-resolved standalone request.
-Also produce an updated concise conversation summary that captures the user's intent and recent context.
+You rewrite the user's current message into a fully-resolved standalone request.
+
+Use the conversation summary and recent history below to resolve pronouns, follow-ups, and implicit references (e.g. "how many?" after discussing documents).
+
+Conversation summary:
+{conversation_summary}
+
+Recent history (prior user/assistant turns):
+{recent_history}
+
+The user's current message arrives in the next turn. Rewrite it using the context above.
+
 Respond with JSON only:
 {
   "resolvedQuery": "standalone rewritten user request",
   "historySummary": "updated concise conversation summary"
 }
-Do not include markdown fences or extra keys.
+
+Rules:
+- resolvedQuery must be self-contained without requiring prior turns.
+- historySummary should stay concise (2-4 sentences) and capture ongoing intent.
+- Do not include markdown fences or extra keys.
 `.trim();
 
 // —— Orchestrator user prompts ——
 
-export function buildQueryRewriteUserPrompt(params: {
-  previousSummary: string;
-  historyText: string;
-  userMessage: string;
-}): string {
-  const { previousSummary, historyText, userMessage } = params;
-  return `Conversation summary:
-${previousSummary || "No previous summary available."}
-
-Recent history:
-${historyText || "No recent history."}
-
-User query:
+export function buildQueryRewriteUserPrompt(userMessage: string): string {
+  return `Current user message:
 ${userMessage}
 
-Rewrite the user query as a self-contained, explicit request using the context above. Also provide an updated concise conversation summary.
-Output valid JSON only.`;
+Rewrite this message using the conversation summary and recent history from your instructions. Output valid JSON only.`;
 }
 
 // —— Tool descriptions (ADK FunctionTool) ——

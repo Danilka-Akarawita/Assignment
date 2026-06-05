@@ -20,9 +20,10 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 10. [Logging & LLM monitoring (Langfuse)](#logging--llm-monitoring-langfuse)
 11. [User feedback (thumbs up / down)](#user-feedback-thumbs-up--down)
 12. [Quick start](#quick-start)
-13. [Configuration](#configuration)
-14. [Future work (recommended order)](#future-work-recommended-order)
-15. [Related docs](#related-docs)
+13. [CI/CD](#cicd)
+14. [Configuration](#configuration)
+15. [Future work (recommended order)](#future-work-recommended-order)
+16. [Related docs](#related-docs)
 
 ---
 
@@ -265,8 +266,9 @@ Defense in depth across services:
 3. Blocks: DML, DDL, multi-statement, comments, system catalogs, `FOR UPDATE`, `SELECT INTO`.
 4. **Row cap** (`SQL_MAX_ROWS`, default 500) and **statement timeout** (`SQL_STATEMENT_TIMEOUT_MS`, default 5s).
 5. **Schema allowlist** via `SQL_ALLOWED_SCHEMAS` (default `public`).
-6. Queries touching `knowledge_*` tables **must** include `user_id = <current user>`.
-7. One automatic **repair retry** on validation/execution failure with error feedback (not full schema re-dump).
+6. **Parameterized tenancy** — queries touching `knowledge_*` tables must use `user_id = $1`; the authenticated user's id is bound server-side at execution time (never embedded as a numeric literal in generated SQL). The validator rejects `user_id = 42`-style literals.
+7. **Parameterized execution** — LLM-generated SQL runs via `$queryRawUnsafe(query, userId)` so `$1` is always the JWT user. Internal catalog/timeout queries use `Prisma.sql` or server-controlled literals (PostgreSQL does not accept bind params in `SET LOCAL`).
+8. One automatic **repair retry** on validation/execution failure with error feedback (not full schema re-dump).
 
 Implementation: `services/tool-execution-service/src/services/sql-validator.ts`
 
@@ -511,6 +513,57 @@ npm run dev --prefix services/frontend
 
 ---
 
+## CI/CD
+
+Single workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+
+| Job | When | What it does |
+|-----|------|----------------|
+| **Test** | Every push / PR | Install deps, `prisma generate`, lint, migrate DB, run unit tests (no service `npm run build` — compilation happens in Docker) |
+| **Semantic release** | Push to `main` only | `npm ci` at repo root (uses local `semantic-release` from `package.json`) → `npm run release` via semantic-release action |
+| **Docker** | After tests pass | Multi-stage Dockerfile build + push on new semver release |
+
+### Version tags
+
+Docker images use **`{service}:{semver}`** from semantic-release:
+
+```text
+ghcr.io/<owner>/auth-service:1.2.0
+ghcr.io/<owner>/knowledge-service:1.2.0
+ghcr.io/<owner>/tool-execution-service:1.2.0
+ghcr.io/<owner>/ai-gateway-service:1.2.0
+ghcr.io/<owner>/frontend:1.2.0
+```
+
+PR builds verify Dockerfiles with `0.0.0-pr.<number>` tags (build only, no push).
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) on `main` so semantic-release can version:
+
+| Commit | Release |
+|--------|---------|
+| `fix: ...` | Patch |
+| `feat: ...` | Minor |
+| `feat!: ...` / `BREAKING CHANGE:` | Major |
+
+Config: [`.releaserc.json`](.releaserc.json) · local CLI: `npm run release`
+
+### Run tests locally (no shell scripts)
+
+```powershell
+npm run infra
+npm run build:shared
+npm run build --prefix services/auth-service
+# ... other services, or npm run build:all
+npm run migrate:all
+npm run test:all
+```
+
+### Dockerfiles
+
+All service Dockerfiles use multi-stage builds: **shared-builder → deps → builder → runner** (frontend: **deps → builder → runner**). Production stages run as non-root `nodejs` user.
+
+---
+
 ## Configuration
 
 ### Prompts
@@ -547,7 +600,7 @@ Work in this sequence to maximize value and avoid rework:
 
 1. **Secrets & config** — managed secrets (not `.env` in prod), unique JWT secrets, restrict CORS to frontend origin.
 2. **Internal service auth** — replace JWT-in-RabbitMQ with service tokens or user-id + signed job context.
-3. **Database migrations CI** — automated migrate on deploy per service.
+3. ~~**Database migrations CI**~~ — done in `.github/workflows/ci.yml` (test job).
 4. **Health checks & graceful shutdown** — drain RabbitMQ consumers, flush Langfuse on SIGTERM (partially done).
 5. **Horizontally scale gateway workers** — multiple consumers on `GATEWAY_AGENT_QUEUE` with prefetch=1 (already set).
 

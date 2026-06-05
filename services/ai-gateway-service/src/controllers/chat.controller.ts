@@ -1,6 +1,5 @@
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
-import type { AuthRequest } from '../middleware/auth.js';
 import {
   createConversationSchema,
   sendMessageSchema,
@@ -13,7 +12,7 @@ import { logger } from '../utils/logger.js';
 const chatService = new ChatService();
 const feedbackService = new FeedbackService();
 
-export const createConversation = async (req: AuthRequest, res: Response) => {
+export const createConversation = async (req: Request, res: Response) => {
   try {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
     const body = createConversationSchema.parse(req.body ?? {});
@@ -28,13 +27,13 @@ export const createConversation = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const listConversations = async (req: AuthRequest, res: Response) => {
+export const listConversations = async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const conversations = await chatService.listConversations(req.user.id);
   res.json({ conversations, total: conversations.length });
 };
 
-export const getConversation = async (req: AuthRequest, res: Response) => {
+export const getConversation = async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const id = parseInt(String(req.params.id), 10);
   if (Number.isNaN(id)) return res.status(400).json({ error: 'Invalid conversation id' });
@@ -59,7 +58,7 @@ export const getConversation = async (req: AuthRequest, res: Response) => {
   });
 };
 
-export const updateConversation = async (req: AuthRequest, res: Response) => {
+export const updateConversation = async (req: Request, res: Response) => {
   try {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
     const id = parseInt(String(req.params.id), 10);
@@ -77,7 +76,7 @@ export const updateConversation = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const deleteConversation = async (req: AuthRequest, res: Response) => {
+export const deleteConversation = async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const id = parseInt(String(req.params.id), 10);
   if (Number.isNaN(id)) return res.status(400).json({ error: 'Invalid conversation id' });
@@ -87,7 +86,7 @@ export const deleteConversation = async (req: AuthRequest, res: Response) => {
   res.json({ message: 'Conversation deleted' });
 };
 
-export const sendMessage = async (req: AuthRequest, res: Response) => {
+export const sendMessage = async (req: Request, res: Response) => {
   try {
     if (!req.user || !req.authToken) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -132,7 +131,7 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getAgentRun = async (req: AuthRequest, res: Response) => {
+export const getAgentRun = async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   const agentRunId = parseInt(String(req.params.runId), 10);

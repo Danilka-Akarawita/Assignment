@@ -38,15 +38,16 @@ export interface RunAgentResult {
 
 export interface ResolveUserMessageInput {
   userId: number;
+  conversationId: number;
+  userMessageId: number;
   sessionId: string;
   userMessage: string;
-  previousSummary: string;
-  history: Array<{ role: string; content: string }>;
 }
 
 export interface ResolveUserMessageResult {
   resolvedQuery: string;
   historySummary: string;
+  priorHistory: Array<{ role: string; content: string }>;
 }
 
 export class AgentOrchestratorService {
@@ -63,16 +64,68 @@ export class AgentOrchestratorService {
   async resolveUserMessage(input: ResolveUserMessageInput): Promise<ResolveUserMessageResult> {
     return traceAgentStep(
       'agent.query-rewrite',
-      { userMessage: input.userMessage, historyLength: input.history.length },
+      {
+        userMessage: input.userMessage,
+        conversationId: input.conversationId,
+      },
       { userId: input.userId, sessionId: input.sessionId },
       () => this.resolveUserMessageInner(input)
     );
   }
 
+  private async loadConversationRewriteContext(
+    conversationId: number,
+    userId: number,
+    excludeMessageId: number,
+  ): Promise<{
+    conversationSummary: string;
+    recentHistoryText: string;
+    priorHistory: Array<{ role: string; content: string }>;
+  }> {
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, userId },
+      include: {
+        messages: { orderBy: { createdAt: 'desc' }, take: 11 },
+      },
+    });
+
+    if (!conversation) {
+      return { conversationSummary: '', recentHistoryText: '', priorHistory: [] };
+    }
+
+    const priorHistory = conversation.messages
+      .filter((message) => message.id !== excludeMessageId)
+      .slice(0, 10)
+      .map(({ role, content }) => ({ role, content }))
+      .reverse();
+
+    const recentHistoryText = priorHistory
+      .map((message) => `${message.role}: ${message.content}`)
+      .join('\n');
+
+    return {
+      conversationSummary: conversation.historySummary ?? '',
+      recentHistoryText,
+      priorHistory,
+    };
+  }
+
   private async resolveUserMessageInner(
     input: ResolveUserMessageInput
   ): Promise<ResolveUserMessageResult> {
-    const { userId, sessionId, userMessage, previousSummary, history } = input;
+    const { userId, conversationId, userMessageId, sessionId, userMessage } = input;
+
+    const { conversationSummary, recentHistoryText, priorHistory } =
+      await this.loadConversationRewriteContext(conversationId, userId, userMessageId);
+
+    logger.debug(
+      {
+        conversationId,
+        summaryLength: conversationSummary.length,
+        historyTurns: priorHistory.length,
+      },
+      'Loaded conversation context for query rewrite',
+    );
 
     await this.queryRewriterRunner.sessionService.createSession({
       appName: ADK_APP_NAME,
@@ -81,18 +134,12 @@ export class AgentOrchestratorService {
       state: {
         user_id: userId,
         step: 'resolve_query',
+        conversation_summary: conversationSummary,
+        recent_history: recentHistoryText,
       },
     });
 
-    const historyText = history
-      .map((message) => `${message.role}: ${message.content}`)
-      .join('\n');
-
-    const prompt = buildQueryRewriteUserPrompt({
-      previousSummary,
-      historyText,
-      userMessage,
-    });
+    const prompt = buildQueryRewriteUserPrompt(userMessage);
 
     const content = createUserContent(prompt);
     let rewrittenText = '';
@@ -123,7 +170,8 @@ export class AgentOrchestratorService {
       historySummary:
         typeof parsed?.historySummary === 'string' && parsed.historySummary.trim()
           ? parsed.historySummary.trim()
-          : previousSummary,
+          : conversationSummary,
+      priorHistory,
     };
 
     recordAgentStepOutput(

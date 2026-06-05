@@ -1,6 +1,5 @@
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
-import type { AuthRequest } from '../middleware/auth.js';
 import {
   listFeedbackSchema,
   submitFeedbackSchema,
@@ -10,7 +9,7 @@ import { logger } from '../utils/logger.js';
 
 const feedbackService = new FeedbackService();
 
-export const submitFeedback = async (req: AuthRequest, res: Response) => {
+export const submitFeedback = async (req: Request, res: Response) => {
   try {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -43,7 +42,7 @@ export const submitFeedback = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const listFeedback = async (req: AuthRequest, res: Response) => {
+export const listFeedback = async (req: Request, res: Response) => {
   try {
     const query = listFeedbackSchema.parse(req.query);
     const { items, total } = await feedbackService.listAllFeedback({

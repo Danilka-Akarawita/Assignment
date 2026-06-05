@@ -5,6 +5,8 @@ const STATE_KEYS = [
   'user_knowledge_catalog',
   'agent_plan',
   'execution_results',
+  'conversation_summary',
+  'recent_history',
 ] as const;
 
 function readStateValue(state: ReadonlyContext['state'], key: string): string {
@@ -15,10 +17,7 @@ function readStateValue(state: ReadonlyContext['state'], key: string): string {
   return text;
 }
 
-/**
- * ADK replaces `{key}` in instructions from session state. Missing keys throw
- * "Context variable not found". Use a provider function instead of raw templates.
- */
+
 export function bindInstruction(
   template: string,
   defaults: Partial<Record<(typeof STATE_KEYS)[number], string>> = {}

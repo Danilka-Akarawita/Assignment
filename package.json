@@ -1,17 +1,25 @@
 {
   "name": "ai-assistant",
+  "version": "1.0.0",
   "private": true,
   "description": "AI Assistant monorepo — run all services locally",
   "scripts": {
     "infra": "docker compose up -d db rabbitmq redis",
     "build:shared": "npm install --prefix packages/shared && npm run build --prefix packages/shared",
     "build:all": "npm run build:shared && npm run build --prefix services/auth-service && npm run build --prefix services/knowledge-service && npm run build --prefix services/tool-execution-service && npm run build --prefix services/ai-gateway-service",
+    "migrate:all": "npm run db:migrate --prefix services/auth-service && npm run db:migrate --prefix services/knowledge-service && npm run db:migrate --prefix services/tool-execution-service && npm run db:migrate --prefix services/ai-gateway-service",
+    "test:all": "npm test --prefix services/auth-service && npm test --prefix services/knowledge-service && npm test --prefix services/tool-execution-service && npm test --prefix services/ai-gateway-service && npm run lint --prefix services/frontend && npm test --prefix services/frontend",
+    "release": "semantic-release",
     "start:services": "concurrently -k -n auth,knowledge,tools,gateway -c blue,green,yellow,magenta \"npm start --prefix services/auth-service\" \"npm start --prefix services/knowledge-service\" \"npm start --prefix services/tool-execution-service\" \"npm start --prefix services/ai-gateway-service\"",
     "start": "npm run infra && wait-on tcp:localhost:5432 tcp:localhost:5672 -t 120000 && npm run start:services",
     "dev": "npm run build:all && npm run start"
   },
   "devDependencies": {
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/github": "^11.0.1",
+    "@semantic-release/release-notes-generator": "^14.0.3",
     "concurrently": "^9.2.1",
+    "semantic-release": "^24.2.3",
     "wait-on": "^8.0.5"
   }
 }
