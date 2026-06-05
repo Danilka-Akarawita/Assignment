@@ -322,7 +322,7 @@ The agent can answer structured questions over Postgres via the `sql_query` tool
 | Medium | **Schema retrieval**: embed table/column docs, fetch top-K relevant tables per question |
 | Large | **Semantic layer**: stable SQL views + glossary; agent sees views, not raw tables |
 
-**Current implementation (Phase A):** full schema catalog to OpenAI `gpt-4.1-mini` via AI SDK `generateObject`; validate → execute → optional repair retry.
+**Current implementation (Phase A):** full schema catalog to OpenAI `gpt-5.4-nano-2026-03-17` via AI SDK `generateObject`; validate → execute → optional repair retry.
 
 Principles:
 
@@ -338,9 +338,9 @@ Principles:
 |----------|---------------|----------|-----------------|
 | Agent planning, execution, synthesis, query rewrite, answer judge | `gemini-3.1-flash-lite` | Google Gemini | Latest lightweight Gemini; fast, low cost, strong tool-calling & structured JSON via ADK; single API key for the full agent loop |
 | Document embeddings | `text-embedding-3-small` (1536d) | OpenAI | Cost-effective at scale; good retrieval quality; pgvector HNSW tuned for 1536 dims |
-| Chunk / document metadata | `gpt-4o-mini` | OpenAI | Cheap structured extraction during ingestion |
-| Query metadata filters (search) | `gpt-4o-mini` | OpenAI | Small JSON output; runs once per search |
-| NL→SQL generation | `gpt-4.1-mini` | OpenAI | Strong reasoning for SQL; AI SDK `generateObject` gives reliable schema-constrained output |
+| Chunk / document metadata | `gpt-5.4-nano-2026-03-17` | OpenAI | Cheap structured extraction during ingestion |
+| Query metadata filters (search) | `gpt-5.4-nano-2026-03-17` | OpenAI | Small JSON output; runs once per search |
+| NL→SQL generation | `gpt-5.4-nano-2026-03-17` | OpenAI | Strong reasoning for SQL; AI SDK `generateObject` gives reliable schema-constrained output |
 
 ### Tradeoffs
 

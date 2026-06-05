@@ -31,7 +31,7 @@ export class SqlGeneratorService {
       throw new SqlGeneratorError('OPENAI_API_KEY is not configured');
     }
 
-    const modelId = process.env.SQL_GENERATOR_MODEL?.trim() ?? 'gpt-4.1-mini';
+    const modelId = process.env.SQL_GENERATOR_MODEL?.trim() ?? 'gpt-5.4-nano-2026-03-17';
     const openai = createOpenAI({ apiKey });
 
     const system = buildSqlGeneratorSystemPrompt(catalog, userId);
@@ -68,7 +68,7 @@ export class SqlGeneratorService {
       throw new SqlGeneratorError('OPENAI_API_KEY is not configured');
     }
 
-    const modelId = process.env.SQL_GENERATOR_MODEL?.trim() ?? 'gpt-4.1-mini';
+    const modelId = process.env.SQL_GENERATOR_MODEL?.trim() ?? 'gpt-5.4-nano-2026-03-17';
     const openai = createOpenAI({ apiKey });
     const system = buildSqlGeneratorSystemPrompt(catalog, userId);
 

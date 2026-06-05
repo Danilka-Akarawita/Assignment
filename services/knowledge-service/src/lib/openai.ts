@@ -18,7 +18,7 @@ export const EMBEDDING_MODEL =
   process.env.OPENAI_EMBEDDING_MODEL ?? 'text-embedding-3-small';
 
 export const METADATA_MODEL =
-  process.env.OPENAI_METADATA_MODEL ?? 'gpt-4.1-mini';
+  process.env.OPENAI_METADATA_MODEL ?? 'gpt-5.4-nano-2026-03-17';
 
 export const EMBEDDING_DIMENSIONS = parseInt(
   process.env.OPENAI_EMBEDDING_DIMENSIONS ?? '1536',
