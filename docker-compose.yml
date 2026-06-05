@@ -51,7 +51,9 @@ services:
       - app-network
 
   auth-service:
-    build: ./services/auth-service
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
     container_name: auth_service
     ports:
       - "3001:3001"
@@ -70,7 +72,9 @@ services:
     restart: unless-stopped
 
   knowledge-service:
-    build: ./services/knowledge-service
+    build:
+      context: .
+      dockerfile: services/knowledge-service/Dockerfile
     container_name: knowledge_service
     ports:
       - "3002:3002"
@@ -94,7 +98,9 @@ services:
     restart: unless-stopped
 
   tool-execution-service:
-    build: ./services/tool-execution-service
+    build:
+      context: .
+      dockerfile: services/tool-execution-service/Dockerfile
     container_name: tool_execution_service
     ports:
       - "3003:3003"
@@ -130,7 +136,9 @@ services:
     restart: unless-stopped
 
   ai-gateway-service:
-    build: ./services/ai-gateway-service
+    build:
+      context: .
+      dockerfile: services/ai-gateway-service/Dockerfile
     container_name: ai_gateway_service
     ports:
       - "3004:3004"

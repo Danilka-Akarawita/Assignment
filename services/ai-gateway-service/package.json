@@ -12,6 +12,7 @@
   },
   "license": "ISC",
   "dependencies": {
+    "@ai-assistant/shared": "file:../../packages/shared",
     "@google/adk": "^0.2.0",
     "@google/genai": "^1.0.0",
     "@langfuse/otel": "^5.4.1",
@@ -19,7 +20,6 @@
     "@opentelemetry/sdk-node": "^0.218.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
-    "amqplib": "^0.10.9",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

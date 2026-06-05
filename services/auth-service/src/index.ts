@@ -1,6 +1,9 @@
+import { configureShared } from '@ai-assistant/shared';
 import app from './app.js';
 import { logger } from './utils/logger.js';
 import { initRabbitMQ } from './lib/rabbitmq.js';
+
+configureShared({ logger });
 
 const PORT = process.env.PORT || 3001;
 

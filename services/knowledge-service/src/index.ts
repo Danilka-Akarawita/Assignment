@@ -1,8 +1,11 @@
+import { configureShared } from '@ai-assistant/shared';
 import app from './app.js';
 import { startIngestionConsumer } from './consumers/ingestion.consumer.js';
 import { getRedisClient } from './lib/redis.js';
 import { initRabbitMQ } from './lib/rabbitmq.js';
 import { logger } from './utils/logger.js';
+
+configureShared({ logger });
 
 const PORT = process.env.PORT || 3002;
 

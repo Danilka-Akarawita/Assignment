@@ -1,9 +1,12 @@
 import 'dotenv/config';
+import { configureShared } from '@ai-assistant/shared';
 import './instrumentation.js';
 import app from './app.js';
 import { startAgentJobConsumer } from './consumers/agent-job.consumer.js';
 import { initRabbitMQ } from './lib/rabbitmq.js';
 import { logger } from './utils/logger.js';
+
+configureShared({ logger });
 
 const PORT = process.env.PORT || 3004;
 

@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import type { JwtPayload, Secret, SignOptions } from 'jsonwebtoken';
 import { jwt } from '../lib/jwt.js';
 import { prisma } from '../lib/prisma.js';
-import { publishEvent } from '../lib/rabbitmq.publisher.js';
+import { publishEvent, USER_EXCHANGE, USER_REGISTERED_KEY } from '../lib/rabbitmq.publisher.js';
 import type { RegisterInput, LoginInput } from '../schemas/auth.schema.js';
 import { logger } from '../utils/logger.js';
 
@@ -40,7 +40,7 @@ export class AuthService {
     const tokens = this.generateTokens(user);
     await this.storeRefreshToken(tokens.refreshToken, user.id);
 
-    await publishEvent('user.events', 'user.registered', {
+    await publishEvent(USER_EXCHANGE, USER_REGISTERED_KEY, {
       userId: user.id,
       email: user.email,
       role: user.role,

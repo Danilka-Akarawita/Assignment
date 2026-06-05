@@ -1,0 +1,31 @@
+{
+  "name": "@ai-assistant/shared",
+  "version": "1.0.0",
+  "description": "Shared auth middleware and RabbitMQ helpers for ai-assistant services",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.9",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "peerDependencies": {
+    "express": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.8",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.9.1",
+    "typescript": "^6.0.3"
+  }
+}
