@@ -18,10 +18,11 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 8. [SQL tool & schema scaling](#sql-tool--schema-scaling)
 9. [Model selection, cost & tradeoffs](#model-selection-cost--tradeoffs)
 10. [Logging & LLM monitoring (Langfuse)](#logging--llm-monitoring-langfuse)
-11. [Quick start](#quick-start)
-12. [Configuration](#configuration)
-13. [Future work (recommended order)](#future-work-recommended-order)
-14. [Related docs](#related-docs)
+11. [User feedback (thumbs up / down)](#user-feedback-thumbs-up--down)
+12. [Quick start](#quick-start)
+13. [Configuration](#configuration)
+14. [Future work (recommended order)](#future-work-recommended-order)
+15. [Related docs](#related-docs)
 
 ---
 
@@ -158,11 +159,11 @@ sequenceDiagram
 
 | Agent | Model (default) | Role |
 |-------|-----------------|------|
-| **QueryRewriterAgent** | `gemini-2.5-flash` | Turns follow-up messages into standalone queries; maintains rolling `historySummary` |
-| **PlanAgent** | `gemini-2.5-flash` | Produces structured plan + todo list with optional `toolHint` |
-| **TodoExecutorAgent** | `gemini-2.5-flash` | Runs todos, calls remote tools, updates todo status in DB |
-| **SynthesisAgent** | `gemini-2.5-flash` | Writes user-facing answer from plan + execution results |
-| **Answer judge** (callback) | `gemini-2.5-flash` | Scores synthesis for correct / partial / wrong before delivery |
+| **QueryRewriterAgent** | `gemini-3.1-flash-lite` | Turns follow-up messages into standalone queries; maintains rolling `historySummary` |
+| **PlanAgent** | `gemini-3.1-flash-lite` | Produces structured plan + todo list with optional `toolHint` |
+| **TodoExecutorAgent** | `gemini-3.1-flash-lite` | Runs todos, calls remote tools, updates todo status in DB |
+| **SynthesisAgent** | `gemini-3.1-flash-lite` | Writes user-facing answer from plan + execution results |
+| **Answer judge** (callback) | `gemini-3.1-flash-lite` | Scores synthesis for correct / partial / wrong before delivery |
 
 Workflow definition: `services/ai-gateway-service/src/agents/workflow.agent.ts`
 
@@ -178,7 +179,7 @@ Prompts are centralized per service — see [Prompts](#prompts).
 
 | Service | Port | Stack | Responsibility |
 |---------|------|-------|----------------|
-| [frontend](services/frontend) | 3000 | Next.js 16, React 19, Zustand | Login, chat UI, knowledge upload, agent-run polling |
+| [frontend](services/frontend) | 3000 | Next.js 16, React 19, Zustand | Login, chat UI, knowledge upload, agent-run polling, thumbs feedback |
 | [auth-service](services/auth-service) | 3001 | Express, JWT, bcrypt | Register, login, refresh tokens |
 | [knowledge-service](services/knowledge-service) | 3002 | Express, pgvector, OpenAI | Upload, chunk, embed, metadata-enriched search |
 | [tool-execution-service](services/tool-execution-service) | 3003 | Express, mathjs, AI SDK | Calculator, NL→SQL, knowledge retrieval proxy |
@@ -335,7 +336,7 @@ Principles:
 
 | Use case | Default model | Provider | Why this choice |
 |----------|---------------|----------|-----------------|
-| Agent planning, execution, synthesis, query rewrite, answer judge | `gemini-2.5-flash` | Google Gemini | Fast, low cost, strong tool-calling & structured JSON via ADK; single API key for entire agent loop |
+| Agent planning, execution, synthesis, query rewrite, answer judge | `gemini-3.1-flash-lite` | Google Gemini | Latest lightweight Gemini; fast, low cost, strong tool-calling & structured JSON via ADK; single API key for the full agent loop |
 | Document embeddings | `text-embedding-3-small` (1536d) | OpenAI | Cost-effective at scale; good retrieval quality; pgvector HNSW tuned for 1536 dims |
 | Chunk / document metadata | `gpt-4o-mini` | OpenAI | Cheap structured extraction during ingestion |
 | Query metadata filters (search) | `gpt-4o-mini` | OpenAI | Small JSON output; runs once per search |
@@ -408,7 +409,47 @@ Extend tracing there for full end-to-end cost and latency dashboards.
 1. **Development** — Langfuse project per developer or shared `development` environment tag.  
 2. **Staging** — Enable judge + trace sampling; add Langfuse **LLM-as-a-Judge** evaluators on sampled traces.  
 3. **Production** — Alert on error spans, p95 `chat.agent-pipeline` latency, tool failure rate, judge `wrong` verdict rate.  
-4. **Feedback loop** — Correlate `MessageFeedback` (up/down) in gateway DB with Langfuse trace IDs (future: store `traceId` on message metadata).
+4. **Feedback loop** — Correlate stored thumbs-up/down ratings with Langfuse traces (see [User feedback](#user-feedback-thumbs-up--down); future: store `traceId` on message metadata).
+
+---
+
+## User feedback (thumbs up / down)
+
+Users can rate each assistant reply with **thumbs up** or **thumbs down** directly in the chat UI. Ratings are persisted in the gateway database for future **prompt fine-tuning**, **quality monitoring**, and **eval datasets**.
+
+### How it works
+
+1. **Chat UI** — Each assistant message shows 👍 / 👎 controls (`MessageFeedback` component).
+2. **Submit** — `POST /feedback` with `conversationId`, `assistantMessageId`, and `rating` (`up` | `down`).
+3. **Storage** — `gateway_message_feedback` stores the paired **user query**, **assistant answer**, rating, and message IDs (one rating per user per assistant message; upsert on change).
+4. **Admin view** — `/admin/feedback` lists all feedback for review and export.
+
+### API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/feedback` | Submit or update thumbs up/down on an assistant message |
+| `GET` | `/feedback` | List feedback records (paginated; admin review) |
+
+### Data captured (for future use)
+
+Each feedback row includes:
+
+| Field | Purpose |
+|-------|---------|
+| `userQuery` | Original question that led to the answer |
+| `assistantAnswer` | Full assistant response that was rated |
+| `rating` | `UP` or `DOWN` |
+| `conversationId`, message IDs | Link back to full agent run / plan / tools in message metadata |
+
+### Planned uses
+
+- **Monitoring** — Track downvote rate over time; slice by conversation, user, or date in the admin UI.
+- **Prompt iteration** — Build golden sets from highly-rated answers; inspect downvoted pairs to revise agent prompts.
+- **Fine-tuning / eval** — Export `(userQuery, assistantAnswer, rating)` as training or eval data once volume is sufficient.
+- **Langfuse correlation** — Join feedback with agent traces (planned: store `traceId` on assistant message metadata) to compare user satisfaction vs automated judge scores.
+
+Implementation: `services/ai-gateway-service/src/services/feedback.service.ts`, `services/frontend/src/components/chat/message-feedback.tsx`.
 
 ---
 
@@ -486,6 +527,7 @@ npm run dev --prefix services/frontend
 |----------|---------|---------|
 | `JWT_SECRET` | auth, gateway, knowledge, tools | Must match across services |
 | `GEMINI_API_KEY` | gateway | ADK agents + answer judge |
+| `GEMINI_MODEL` | gateway | Default `gemini-3.1-flash-lite` (all ADK agents + judge) |
 | `OPENAI_API_KEY` | knowledge, tools | Embeddings, metadata, SQL |
 | `LANGFUSE_*` | gateway | LLM tracing |
 | `RATE_LIMIT_*` | gateway | Abuse protection |
