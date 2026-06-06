@@ -33,60 +33,6 @@ Five application services share one PostgreSQL database (with **pgvector**), plu
 
 The **frontend** uses a single backend URL (`NEXT_PUBLIC_API_URL=http://localhost:3001`). **auth-service** is the API gateway: it handles auth locally and reverse-proxies everything else to internal services.
 
-```mermaid
-%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 50,'rankSpacing': 70},'themeVariables': {'fontFamily':'Arial','fontSize':'14px','lineColor':'#4b5563','clusterBkg':'#f8fafc','clusterBorder':'#94a3b8'}}}%%
-flowchart TB
-  subgraph client["Client"]
-    FE["frontend :3000<br/>Next.js"]
-  end
-
-  subgraph gateway["API Gateway"]
-    AUTH["auth-service :3001<br/>JWT · auth · reverse proxy"]
-  end
-
-  subgraph services["Internal Services"]
-    GW["ai-gateway-service :3004<br/>ADK agents · chat"]
-    KS["knowledge-service :3002<br/>RAG · embeddings"]
-    TOOLS["tool-execution-service :3003<br/>calculator · SQL · retrieval"]
-  end
-
-  subgraph infra["Infrastructure"]
-    PG[("PostgreSQL + pgvector :5432")]
-    REDIS[("Redis :6379")]
-    RMQ[("RabbitMQ :5672")]
-  end
-
-  FE -->|"NEXT_PUBLIC_API_URL"| AUTH
-
-  AUTH -.->|"/auth/* · /users/*<br/>(local)"| AUTH
-  AUTH -->|"/conversations/* · /feedback/*<br/>(proxy + path rewrite)"| GW
-  AUTH -->|"/documents/*<br/>(proxy + path rewrite)"| KS
-
-  GW -->|"POST /tools/execute"| TOOLS
-  GW <-->|"search / metadata"| KS
-  TOOLS -->|"RAG search"| KS
-
-  AUTH --> PG
-  AUTH --> RMQ
-  GW --> PG
-  GW --> RMQ
-  KS --> PG
-  KS --> REDIS
-  KS --> RMQ
-  TOOLS --> PG
-
-  classDef client fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
-  classDef gateway fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-  classDef svc fill:#fef9c3,stroke:#ca8a04,color:#713f12,stroke-width:2px;
-  classDef tools fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
-  classDef storage fill:#f3e8ff,stroke:#9333ea,color:#581c87,stroke-width:2px;
-
-  class FE client;
-  class AUTH gateway;
-  class GW,KS svc;
-  class TOOLS tools;
-  class PG,REDIS,RMQ storage;
-```
 
 ### API gateway routing
 
@@ -146,60 +92,7 @@ Chat messages are handled **asynchronously**: the HTTP handler publishes `chat.r
 
 ![Agent orchestration](docs/images/agent-orchestration.png)
 
-```mermaid
-%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 55,'rankSpacing': 75},'themeVariables': {'fontFamily':'Arial','fontSize':'14px','lineColor':'#4b5563','clusterBkg':'#f8fafc','clusterBorder':'#94a3b8'}}}%%
-flowchart TB
-  UI[Frontend UI]
-  AUTH[auth-service]
-  API[ai-gateway-service]
-  RMQ[(RabbitMQ chat queue)]
 
-  subgraph pre [Pre-workflow]
-    QR[QueryRewriterAgent]
-  end
-
-  subgraph workflow ["SequentialAgent — plan → execute → synthesize"]
-    PA[PlanAgent]
-    TE["TodoExecutorAgent<br/>knowledge_retrieval · sql_query · calculator<br/>update_todo_status"]
-    SA[SynthesisAgent]
-    JUDGE[Answer Judge]
-  end
-
-  TS[tool-execution-service]
-  KS[knowledge-service]
-  DB[(PostgreSQL)]
-
-  UI -->|POST /conversations/:id/messages| AUTH
-  AUTH -->|proxy| API
-  API -->|Publish chat.requested| RMQ
-  RMQ -->|Worker consumes job| QR
-  QR --> PA
-  PA --> TE
-  TE -->|POST /tools/execute| TS
-  TS -->|RAG search| KS
-  KS --> DB
-  TS -->|sql_query / write results| DB
-  TE -->|update_todo_status| DB
-  TE --> SA
-  SA --> JUDGE
-  JUDGE -->|Final response| API
-  API -->|GET /agent-runs/:id| AUTH
-  AUTH -->|Run status + answer| UI
-
-  classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-  classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
-  classDef gateway fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
-  classDef agents fill:#fce7f3,stroke:#db2777,color:#831843,stroke-width:2px;
-  classDef services fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
-  classDef storage fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
-
-  class UI ui;
-  class AUTH auth;
-  class API,RMQ gateway;
-  class QR,PA,TE,SA,JUDGE agents;
-  class TS,KS services;
-  class DB storage;
-```
 
 ### Agents
 
