@@ -32,7 +32,8 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 Five application services share one PostgreSQL database (with **pgvector**), plus **Redis** (embedding cache) and **RabbitMQ** (async jobs).
 
 ```mermaid
-flowchart TB
+%%{init: {'theme':'base','flowchart': {'curve':'linear'}, 'themeVariables': {'fontFamily':'Inter, Arial, sans-serif','primaryColor':'#eaf3ff','primaryTextColor':'#1f2937','primaryBorderColor':'#8fb6e8','secondaryColor':'#eefbf3','tertiaryColor':'#f5f3ff','lineColor':'#64748b','clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1'}}}%%
+flowchart LR
   subgraph client [Client]
     FE[Next.js Frontend :3000]
   end
@@ -61,13 +62,13 @@ flowchart TB
     LF[Langfuse]
   end
 
-  FE -->|JWT| AUTH
-  FE -->|JWT| GW
-  FE -->|JWT| KNOW
+  FE -->|Login / register| AUTH
+  FE -->|JWT auth| GW
+  FE -->|JWT auth| KNOW
 
   GW -->|JWT forward| TOOLS
-  GW -->|document list| KNOW
-  TOOLS -->|search| KNOW
+  GW -->|Document list| KNOW
+  TOOLS -->|Search| KNOW
 
   AUTH --> PG
   GW --> PG
@@ -84,6 +85,18 @@ flowchart TB
 
   ADK --> GEMINI
   GW --> LF
+
+  classDef clientNode fill:#eaf3ff,stroke:#8fb6e8,color:#1f2937;
+  classDef gatewayNode fill:#f3f7ff,stroke:#8aa7e8,color:#1f2937;
+  classDef serviceNode fill:#eefbf3,stroke:#86c6a1,color:#1f2937;
+  classDef infraNode fill:#fff8e8,stroke:#e0be7c,color:#1f2937;
+  classDef extNode fill:#f5f3ff,stroke:#b6a7e8,color:#1f2937;
+
+  class FE clientNode;
+  class GW,ADK gatewayNode;
+  class AUTH,KNOW,TOOLS serviceNode;
+  class PG,REDIS,RMQ infraNode;
+  class GEMINI,OPENAI,LF extNode;
 ```
 
 ### Data & messaging flows
@@ -110,50 +123,56 @@ All services connect to the same Postgres instance in development; in production
 
 ## Agent orchestration
 
-The **ai-gateway-service** runs a **Google ADK** multi-step workflow. Every user message goes through query rewriting, then a sequential plan → execute → synthesize pipeline.
+The **ai-gateway-service** runs a **Google ADK** multi-step workflow. The flow below shows the agent pipeline and service interactions.
 
 ```mermaid
-sequenceDiagram
-  participant UI as Frontend
-  participant GW as ai-gateway-service
-  participant RMQ as RabbitMQ
-  participant QR as QueryRewriterAgent
-  participant WF as SequentialAgent Workflow
-  participant PA as PlanAgent
-  participant TE as TodoExecutorAgent
-  participant SA as SynthesisAgent
-  participant TS as tool-execution-service
-  participant KS as knowledge-service
+%%{init: {'theme':'base','flowchart': {'curve':'linear'}, 'themeVariables': {'fontFamily':'Inter, Arial, sans-serif','lineColor':'#64748b','clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1'}}}%%
+flowchart LR
+  UI[Frontend UI]
+  AUTH[auth-service]
+  API[ai-gateway-service API]
+  RMQ[(RabbitMQ chat queue)]
 
-  UI->>GW: POST /conversations/:id/messages (async=true)
-  GW->>GW: Create AgentRun + user message
-  GW->>RMQ: Publish chat job
-  GW-->>UI: { status: queued, agentRunId }
-
-  loop Poll every 2s
-    UI->>GW: GET /agent-runs/:runId
-    GW-->>UI: status, todos, plan
+  subgraph agents [Gateway Agent Flow]
+    QR[QueryRewriterAgent]
+    PA[PlanAgent]
+    TE[TodoExecutorAgent]
+    SA[SynthesisAgent]
+    JUDGE[Answer Judge]
   end
 
-  Note over GW,RMQ: Worker consumes job
-  GW->>QR: Rewrite query + update history summary
-  QR-->>GW: resolvedQuery, historySummary
+  TS[tool-execution-service]
+  KS[knowledge-service]
+  DB[(PostgreSQL)]
 
-  GW->>WF: Run workflow (session state)
-  WF->>PA: Plan todos + tool hints
-  PA-->>WF: agent_plan (structured JSON)
-  WF->>TE: Execute todos sequentially
-  loop Each todo
-    TE->>TS: knowledge_retrieval / sql_query / calculator
-    TS->>KS: vector search (if RAG)
-    TS-->>TE: tool result
-    TE->>TE: update_todo_status
-  end
-  TE-->>WF: execution_results
-  WF->>SA: Synthesize final answer
-  SA->>SA: LLM answer judge (guardrail)
-  SA-->>WF: final_response
-  WF-->>GW: completed AgentRun + assistant message
+  UI -->|Login / token refresh| AUTH
+  UI -->|POST message + JWT| API
+  API -->|Queue job| RMQ
+  RMQ -->|Worker consumes| QR
+  QR --> PA
+  PA --> TE
+  TE -->|knowledge_retrieval / sql / calculator| TS
+  TS -->|RAG search| KS
+  KS --> DB
+  TS --> DB
+  TE --> SA
+  SA --> JUDGE
+  JUDGE -->|Final response| API
+  API -->|AgentRun status + answer| UI
+
+  classDef uiNode fill:#e6f4ff,stroke:#7db0dd,color:#1f2937;
+  classDef authNode fill:#fff3e6,stroke:#e2b37a,color:#1f2937;
+  classDef gatewayNode fill:#edf2ff,stroke:#8ea2e6,color:#1f2937;
+  classDef agentNode fill:#f0ecff,stroke:#a595e6,color:#1f2937;
+  classDef serviceNode fill:#e9fcef,stroke:#7dc99b,color:#1f2937;
+  classDef storageNode fill:#fffbe8,stroke:#d6c873,color:#1f2937;
+
+  class UI uiNode;
+  class AUTH authNode;
+  class API,RMQ gatewayNode;
+  class QR,PA,TE,SA,JUDGE agentNode;
+  class TS,KS serviceNode;
+  class DB storageNode;
 ```
 
 ### Agents
