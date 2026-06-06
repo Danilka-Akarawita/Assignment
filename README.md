@@ -32,41 +32,42 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 Five application services share one PostgreSQL database (with **pgvector**), plus **Redis** (embedding cache) and **RabbitMQ** (async jobs).
 
 ```mermaid
-%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 90,'rankSpacing': 120},'themeVariables': {'fontFamily':'Arial','fontSize':'26px','lineColor':'#4b5563'}}}%%
-flowchart TB
+%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 95,'rankSpacing': 120},'themeVariables': {'fontFamily':'Arial','fontSize':'26px','lineColor':'#4b5563'}}}%%
+flowchart LR
   FE[Next.js Frontend :3000]
   AUTH[auth-service :3001]
   GW[ai-gateway-service :3004]
-  ADK[Google ADK Agents]
   KNOW[knowledge-service :3002]
   TOOLS[tool-execution-service :3003]
+  ADK[Google ADK Agents]
   PG[(PostgreSQL + pgvector :5432)]
-  REDIS[(Redis :6379)]
   RMQ[RabbitMQ :5672]
+  REDIS[(Redis :6379)]
   GEMINI[Google Gemini]
   OPENAI[OpenAI]
   LF[Langfuse]
 
-  FE -->|Login / register| AUTH
-  FE -->|JWT auth| GW
-  FE -->|JWT auth| KNOW
+  FE --> AUTH
+  FE --> GW
+  FE --> KNOW
 
-  GW -->|Document list| KNOW
-  GW -->|JWT forward| TOOLS
-  TOOLS -->|Knowledge search| KNOW
+  GW --> ADK
+  GW --> KNOW
+  GW --> TOOLS
+  TOOLS --> KNOW
 
   AUTH --> PG
   GW --> PG
   KNOW --> PG
   TOOLS --> PG
 
+  AUTH --> RMQ
+  GW --> RMQ
+  KNOW --> RMQ
+
   KNOW --> REDIS
   KNOW --> OPENAI
   TOOLS --> OPENAI
-
-  AUTH --> RMQ
-  KNOW --> RMQ
-  GW --> RMQ
 
   ADK --> GEMINI
   GW --> LF
