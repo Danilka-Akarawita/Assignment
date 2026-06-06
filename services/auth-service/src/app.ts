@@ -6,6 +6,10 @@ import { pinoHttp } from 'pino-http';
 import { logger } from './utils/logger.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/index.js';
+import {
+  gatewayProxy,
+  knowledgeProxy,
+} from './middleware/service-proxy.js';
 
 const app = express();
 
@@ -29,6 +33,9 @@ app.use(pinoHttp({ logger }));
 // Routes
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
+app.use('/conversations', ...gatewayProxy('/conversations'));
+app.use('/feedback', ...gatewayProxy('/feedback'));
+app.use('/documents', ...knowledgeProxy('/documents'));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
