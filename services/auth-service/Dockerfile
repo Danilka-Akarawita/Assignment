@@ -6,8 +6,8 @@ WORKDIR /app
 COPY packages/shared/package*.json ./packages/shared/
 COPY services/auth-service/package*.json ./services/auth-service/
 
-RUN npm ci --prefix ./packages/shared
-RUN npm ci --prefix ./services/auth-service
+RUN npm ci --ignore-scripts --prefix ./packages/shared
+RUN npm ci --ignore-scripts --prefix ./services/auth-service
 
 
 FROM deps AS builder
