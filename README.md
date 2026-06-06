@@ -32,77 +32,59 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 Five application services share one PostgreSQL database (with **pgvector**), plus **Redis** (embedding cache) and **RabbitMQ** (async jobs).
 
 ```mermaid
-%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 110,'rankSpacing': 140,'htmlLabels': true},'themeVariables': {'fontFamily':'Arial','fontSize':'36px','background':'#000000','mainBkg':'#000000','clusterBkg':'#ffffff','clusterBorder':'#ffffff','titleColor':'#000000','primaryColor':'#ffffff','primaryTextColor':'#000000','secondaryTextColor':'#000000','tertiaryTextColor':'#000000','primaryBorderColor':'#000000','lineColor':'#ffffff','edgeLabelBackground':'#ffffff','edgeLabelColor':'#000000'}}}%%
-flowchart LR
-  subgraph client [Client]
-    FE[Next.js Frontend :3000]
+%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 60,'rankSpacing': 85},'themeVariables': {'fontFamily':'Arial','fontSize':'18px','lineColor':'#4b5563','clusterBkg':'#f8fafc','clusterBorder':'#94a3b8'}}}%%
+flowchart TB
+  UI[Frontend UI]
+  AUTH[auth-service]
+  GW[ai-gateway-service]
+  KNOW[knowledge-service]
+  TOOLS[tool-execution-service]
+  RMQ[(RabbitMQ)]
+  DB[(PostgreSQL + pgvector)]
+  REDIS[(Redis)]
+
+  subgraph agents [Google ADK Agents]
+    QR[QueryRewriterAgent]
+    PA[PlanAgent]
+    TE[TodoExecutorAgent]
+    SA[SynthesisAgent]
+    QR --> PA --> TE --> SA
   end
 
-  subgraph orchestration [Orchestration]
-    GW[ai-gateway-service :3004]
-    ADK[Google ADK Agents]
-  end
+  UI -->|HTTP| AUTH
+  UI -->|HTTP| GW
+  UI -->|HTTP| KNOW
 
-  subgraph core [Core services]
-    AUTH[auth-service :3001]
-    KNOW[knowledge-service :3002]
-    TOOLS[tool-execution-service :3003]
-  end
+  GW -->|Run pipeline| QR
+  GW -->|POST /tools/execute| TOOLS
+  TOOLS -->|RAG search| KNOW
 
-  subgraph infra [Infrastructure]
-    PG[(PostgreSQL + pgvector :5432)]
-    RMQ[RabbitMQ :5672]
-    REDIS[(Redis :6379)]
-  end
+  AUTH --> DB
+  GW --> DB
+  KNOW --> DB
+  TOOLS --> DB
+  KNOW -->|embedding cache| REDIS
 
-  subgraph externalGroup [External APIs]
-    GEMINI[Google Gemini]
-    OPENAI[OpenAI]
-    LF[Langfuse]
-  end
+  AUTH -->|user.registered| RMQ
+  KNOW -->|document.uploaded| RMQ
+  RMQ -->|knowledge.ingestion| KNOW
+  GW -->|chat.requested| RMQ
+  RMQ -->|gateway.agent| GW
 
-  FE ==>|HTTP| AUTH
-  FE ==>|HTTP| GW
-  FE ==>|HTTP| KNOW
+  classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
+  classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
+  classDef gateway fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
+  classDef agents fill:#fce7f3,stroke:#db2777,color:#831843,stroke-width:2px;
+  classDef services fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
+  classDef storage fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
 
-  GW ==> ADK
-  GW ==>|HTTP| KNOW
-  GW ==>|POST /tools/execute| TOOLS
-  TOOLS ==>|HTTP| KNOW
-
-  AUTH ==> PG
-  GW ==> PG
-  KNOW ==> PG
-  TOOLS ==> PG
-
-  KNOW ==> REDIS
-  KNOW ==> OPENAI
-  TOOLS ==> OPENAI
-
-  ADK ==> GEMINI
-  GW ==> LF
-
-  AUTH -.->|publish user.registered| RMQ
-  KNOW -.->|publish document.uploaded| RMQ
-  RMQ -.->|consume knowledge.ingestion| KNOW
-  GW -.->|publish chat.requested| RMQ
-  RMQ -.->|consume gateway.agent| GW
-
-  style client fill:#ffffff,stroke:#ffffff,color:#000000,stroke-width:2px
-  style orchestration fill:#ffffff,stroke:#ffffff,color:#000000,stroke-width:2px
-  style core fill:#ffffff,stroke:#ffffff,color:#000000,stroke-width:2px
-  style infra fill:#ffffff,stroke:#ffffff,color:#000000,stroke-width:2px
-  style externalGroup fill:#ffffff,stroke:#ffffff,color:#000000,stroke-width:2px
-
-  classDef node fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px,font-size:36px;
-
-  class FE,GW,ADK,AUTH,KNOW,TOOLS,PG,RMQ,REDIS,GEMINI,OPENAI,LF node;
-
-  linkStyle default stroke:#ffffff,stroke-width:4px
-  linkStyle 16,17,18,19,20 stroke:#facc15,stroke-width:5px
+  class UI ui;
+  class AUTH auth;
+  class GW,RMQ gateway;
+  class QR,PA,TE,SA agents;
+  class KNOW,TOOLS services;
+  class DB,REDIS storage;
 ```
-
-**Diagram legend:** black canvas; white boxes and subgraphs with black text; thick **white arrows** = synchronous HTTP; **dashed yellow arrows** = RabbitMQ async jobs (publish → queue → consume).
 
 ### Data & messaging flows
 
