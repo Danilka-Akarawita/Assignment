@@ -21,18 +21,18 @@ Rules:
 
 Multi-tenant (required):
 - The server binds the authenticated user's id as PostgreSQL parameter $1. Never embed a numeric user id literal in the query.
-- Tables knowledge_documents and knowledge_document_chunks are per-user. ALWAYS include: WHERE ... user_id = $1 (or d.user_id = $1 when aliased).
-- On knowledge_documents, status is enum DocumentStatus — always quote values: status = 'COMPLETED' (never status = COMPLETED).
-- knowledge_document_chunks has no user_id column; join knowledge_documents and filter d.user_id = $1.
-- For "how many documents" questions, query knowledge_documents (not chunks).
+- Use the schema below: for any table with a user_id column, always scope the query with user_id = $1 (or alias.user_id = $1 when aliased).
+- For tables without user_id, join to a related table that has user_id and filter on that table's user_id = $1.
+- When filtering enum columns, always quote values as string literals (e.g. status = 'COMPLETED', never bare status = COMPLETED).
+- For count or aggregate questions about a parent entity, query the parent table (the one that owns user_id), not child/detail tables, unless the question is explicitly about child rows.
 
-Example document count:
-SELECT count(*) AS document_count
-FROM knowledge_documents
+Example scoped count:
+SELECT count(*) AS item_count
+FROM some_table
 WHERE user_id = $1 AND status = 'COMPLETED'
 
 Knowledge / vectors:
-- knowledge_document_chunks.embedding is pgvector. Similarity search usually needs a vector literal from the app; for counts, listings, and metadata prefer columns like chunk_text, document_id, id without vector operators unless the question is explicitly about similarity.
+- Columns typed as vector (pgvector) usually need a vector literal from the app for similarity search; for counts, listings, and metadata prefer non-vector columns unless the question is explicitly about similarity.
 `.trim();
 
 function formatTableDDL(catalog: DatabaseSchemaCatalog): string {

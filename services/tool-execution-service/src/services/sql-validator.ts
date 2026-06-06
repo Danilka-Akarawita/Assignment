@@ -1,8 +1,3 @@
-/**
- * Mandatory sanitization gate for all SQL (including LLM-generated).
- * Nothing executes on Postgres without passing validateReadOnlySql().
- * user_id is always bound as $1 server-side — never accept numeric literals.
- */
 
 const FORBIDDEN_KEYWORDS =
   /\b(INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER|CREATE|REPLACE|MERGE|GRANT|REVOKE|COPY|CALL|EXECUTE|DO|LOCK|VACUUM|ANALYZE|REINDEX|CLUSTER|REFRESH|COMMENT|SECURITY|SET|RESET|SHOW|DISCARD|LISTEN|NOTIFY|UNLISTEN|LOAD|IMPORT|EXPORT|pg_sleep|pg_terminate_backend|dblink|lo_import|lo_export)\b/i;
