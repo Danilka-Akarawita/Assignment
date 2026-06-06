@@ -22,8 +22,6 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 12. [Quick start](#quick-start)
 13. [CI](#ci)
 14. [Configuration](#configuration)
-15. [Future work (recommended order)](#future-work-recommended-order)
-16. [Related docs](#related-docs)
 
 ---
 
@@ -33,30 +31,74 @@ Five application services share one PostgreSQL database (with **pgvector**), plu
 
 ![System architecture](docs/images/architecture.png)
 
-### API gateway (auth-service)
-
-The **frontend** talks to a **single backend URL** — **auth-service** (port 3001). Auth-service acts as an **API gateway**: it handles authentication locally and **reverse-proxies** all other HTTP traffic to internal services.
+The **frontend** uses a single backend URL (`NEXT_PUBLIC_API_URL=http://localhost:3001`). **auth-service** is the API gateway: it handles auth locally and reverse-proxies everything else to internal services.
 
 ```mermaid
-flowchart LR
-  FE[frontend :3000] --> AUTH[auth-service :3001]
-  AUTH -->|/auth, /users| AUTH
-  AUTH -->|/conversations, /feedback| GW[ai-gateway-service :3004]
-  AUTH -->|/documents| KS[knowledge-service :3002]
-  GW --> TOOLS[tool-execution-service :3003]
-  GW --> KS
+%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 50,'rankSpacing': 70},'themeVariables': {'fontFamily':'Arial','fontSize':'14px','lineColor':'#4b5563','clusterBkg':'#f8fafc','clusterBorder':'#94a3b8'}}}%%
+flowchart TB
+  subgraph client["Client"]
+    FE["frontend :3000<br/>Next.js"]
+  end
+
+  subgraph gateway["API Gateway"]
+    AUTH["auth-service :3001<br/>JWT · auth · reverse proxy"]
+  end
+
+  subgraph services["Internal Services"]
+    GW["ai-gateway-service :3004<br/>ADK agents · chat"]
+    KS["knowledge-service :3002<br/>RAG · embeddings"]
+    TOOLS["tool-execution-service :3003<br/>calculator · SQL · retrieval"]
+  end
+
+  subgraph infra["Infrastructure"]
+    PG[("PostgreSQL + pgvector :5432")]
+    REDIS[("Redis :6379")]
+    RMQ[("RabbitMQ :5672")]
+  end
+
+  FE -->|"NEXT_PUBLIC_API_URL"| AUTH
+
+  AUTH -.->|"/auth/* · /users/*<br/>(local)"| AUTH
+  AUTH -->|"/conversations/* · /feedback/*<br/>(proxy + path rewrite)"| GW
+  AUTH -->|"/documents/*<br/>(proxy + path rewrite)"| KS
+
+  GW -->|"POST /tools/execute"| TOOLS
+  GW <-->|"search / metadata"| KS
+  TOOLS -->|"RAG search"| KS
+
+  AUTH --> PG
+  AUTH --> RMQ
+  GW --> PG
+  GW --> RMQ
+  KS --> PG
+  KS --> REDIS
+  KS --> RMQ
+  TOOLS --> PG
+
+  classDef client fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
+  classDef gateway fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
+  classDef svc fill:#fef9c3,stroke:#ca8a04,color:#713f12,stroke-width:2px;
+  classDef tools fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
+  classDef storage fill:#f3e8ff,stroke:#9333ea,color:#581c87,stroke-width:2px;
+
+  class FE client;
+  class AUTH gateway;
+  class GW,KS svc;
+  class TOOLS tools;
+  class PG,REDIS,RMQ storage;
 ```
 
-| Path prefix | Handled by | Proxied to |
-|-------------|------------|------------|
-| `/auth/*` | auth-service | — (local) |
-| `/users/*` | auth-service | — (local) |
-| `/conversations/*`, `/feedback/*` | auth-service | ai-gateway-service |
-| `/documents/*` | auth-service | knowledge-service |
+### API gateway routing
 
-Proxied routes require a valid JWT at the gateway edge; downstream services still validate the token for defense in depth. **tool-execution-service** is not exposed to the browser — only ai-gateway-service calls it server-to-server.
+| Path prefix | auth-service action | Upstream target |
+|-------------|---------------------|-----------------|
+| `/auth/*` | Local — register, login, refresh | — |
+| `/users/*` | Local — user management | — |
+| `/conversations/*`, `/feedback/*` | Proxy (JWT required) + path rewrite | ai-gateway-service :3004 |
+| `/documents/*` | Proxy (JWT required) + path rewrite | knowledge-service :3002 |
+| `/health` | Local health check | — |
 
-Frontend env: `NEXT_PUBLIC_API_URL=http://localhost:3001` (replaces separate gateway/knowledge URLs).
+Proxied routes require a valid JWT at the gateway edge; downstream services still validate the token for defense in depth. **tool-execution-service** is not exposed to the browser — only ai-gateway-service calls it server-to-server via `POST /tools/execute`.
 
 ### Data & messaging flows
 
@@ -66,6 +108,22 @@ Frontend env: `NEXT_PUBLIC_API_URL=http://localhost:3001` (replaces separate gat
 | Chat message | HTTP → RabbitMQ `chat.requested` → worker | Non-blocking agent pipeline; UI polls `GET /agent-runs/:id` |
 | User registration | RabbitMQ `user.registered` | Event hook for downstream consumers |
 | Tool execution | Gateway → HTTP `POST /tools/execute` | Centralized audit + validation |
+
+### Why not cross-service events?
+
+RabbitMQ is used as an **in-service job queue** (publish and consume inside the same service), not as the main way services talk to each other. Cross-service communication uses **HTTP**.
+
+**Same-service queues** — `chat.requested` and `document.uploaded` decouple the HTTP handler from long work (agent pipeline, document ingestion). The API returns immediately; a worker in the same process picks up the job. No other service needs to subscribe.
+
+**HTTP between services** — When the agent runs a tool, it needs the result **before** the next step (plan → execute → synthesize). That is request–response, not fire-and-forget. Putting gateway → tool-execution on a queue would require request–reply (correlation IDs, reply queues, timeouts) on top of RabbitMQ — more complex than a direct `POST /tools/execute` with the user's JWT.
+
+**When cross-service events would fit** — One event, many listeners with no reply needed (e.g. `user.registered` for analytics or email). Auth already publishes that; nothing consumes it in this repo yet.
+
+| Need | Pattern used |
+|------|----------------|
+| Background job in one service | Same-service RabbitMQ queue |
+| Answer required in the same flow | HTTP (sync) |
+| One event, optional many subscribers | Cross-service RabbitMQ (reserved for hooks like `user.registered`) |
 
 ### Database ownership (logical)
 
@@ -84,7 +142,64 @@ All services connect to the same Postgres instance in development; in production
 
 The **ai-gateway-service** runs a **Google ADK** agentic pipeline. The **orchestration shell** is a fixed `SequentialAgent` (plan → execute → synthesize), but **each request is LLM-planned**: todo count, tool choice, and tool-call sequence are decided at runtime — not hardcoded.
 
+Chat messages are handled **asynchronously**: the HTTP handler publishes `chat.requested` to RabbitMQ and returns `queued`; a worker in the same service consumes the job and runs the agent pipeline. The UI polls `GET /agent-runs/:id` (via auth-service proxy) until the run completes.
+
 ![Agent orchestration](docs/images/agent-orchestration.png)
+
+```mermaid
+%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 55,'rankSpacing': 75},'themeVariables': {'fontFamily':'Arial','fontSize':'14px','lineColor':'#4b5563','clusterBkg':'#f8fafc','clusterBorder':'#94a3b8'}}}%%
+flowchart TB
+  UI[Frontend UI]
+  AUTH[auth-service]
+  API[ai-gateway-service]
+  RMQ[(RabbitMQ chat queue)]
+
+  subgraph pre [Pre-workflow]
+    QR[QueryRewriterAgent]
+  end
+
+  subgraph workflow ["SequentialAgent — plan → execute → synthesize"]
+    PA[PlanAgent]
+    TE["TodoExecutorAgent<br/>knowledge_retrieval · sql_query · calculator<br/>update_todo_status"]
+    SA[SynthesisAgent]
+    JUDGE[Answer Judge]
+  end
+
+  TS[tool-execution-service]
+  KS[knowledge-service]
+  DB[(PostgreSQL)]
+
+  UI -->|POST /conversations/:id/messages| AUTH
+  AUTH -->|proxy| API
+  API -->|Publish chat.requested| RMQ
+  RMQ -->|Worker consumes job| QR
+  QR --> PA
+  PA --> TE
+  TE -->|POST /tools/execute| TS
+  TS -->|RAG search| KS
+  KS --> DB
+  TS -->|sql_query / write results| DB
+  TE -->|update_todo_status| DB
+  TE --> SA
+  SA --> JUDGE
+  JUDGE -->|Final response| API
+  API -->|GET /agent-runs/:id| AUTH
+  AUTH -->|Run status + answer| UI
+
+  classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
+  classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
+  classDef gateway fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
+  classDef agents fill:#fce7f3,stroke:#db2777,color:#831843,stroke-width:2px;
+  classDef services fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
+  classDef storage fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
+
+  class UI ui;
+  class AUTH auth;
+  class API,RMQ gateway;
+  class QR,PA,TE,SA,JUDGE agents;
+  class TS,KS services;
+  class DB storage;
+```
 
 ### Agents
 
@@ -157,7 +272,7 @@ Every tool execution is **audited** in `tool_executions` (input, output, duratio
 
 | Service | Middleware | User scoping |
 |---------|------------|--------------|
-| auth-service | Public `/auth/*`; protected `/users/*` | N/A |
+| auth-service | Public `/auth/*`; protected `/users/*`; JWT gate on proxied `/conversations/*`, `/feedback/*`, `/documents/*` | N/A |
 | knowledge-service | `authenticate` on all `/documents/*` | Documents filtered by `userId` |
 | tool-execution-service | `authenticate` on all `/tools/*` | SQL + knowledge calls scoped to JWT user |
 | ai-gateway-service | `authenticate` on all routes | Conversations and agent runs owned by `userId` |
@@ -298,7 +413,7 @@ Principles:
 5. Answer judge — 1× Gemini call  
 6. Tools — 0–N × OpenAI (SQL) + embedding calls (search)
 
-Optimize by: caching knowledge catalog, reducing todos for simple queries, routing simple questions to a lighter path (future work), and tuning `GUARDRAIL_JUDGE_ENABLED`.
+Optimize by: caching knowledge catalog, reducing todos for simple queries, and tuning `GUARDRAIL_JUDGE_ENABLED`.
 
 ---
 
@@ -345,13 +460,13 @@ Extend tracing there for full end-to-end cost and latency dashboards.
 1. **Development** — Langfuse project per developer or shared `development` environment tag.  
 2. **Staging** — Enable judge + trace sampling; add Langfuse **LLM-as-a-Judge** evaluators on sampled traces.  
 3. **Production** — Alert on error spans, p95 `chat.agent-pipeline` latency, tool failure rate, judge `wrong` verdict rate.  
-4. **Feedback loop** — Correlate stored thumbs-up/down ratings with Langfuse traces (see [User feedback](#user-feedback-thumbs-up--down); future: store `traceId` on message metadata).
+4. **Feedback loop** — Correlate stored thumbs-up/down ratings with Langfuse traces (see [User feedback](#user-feedback-thumbs-up--down)).
 
 ---
 
 ## User feedback (thumbs up / down)
 
-Users can rate each assistant reply with **thumbs up** or **thumbs down** directly in the chat UI. Ratings are persisted in the gateway database for future **prompt fine-tuning**, **quality monitoring**, and **eval datasets**.
+Users can rate each assistant reply with **thumbs up** or **thumbs down** directly in the chat UI. Ratings are persisted in the gateway database.
 
 ### How it works
 
@@ -367,7 +482,7 @@ Users can rate each assistant reply with **thumbs up** or **thumbs down** direct
 | `POST` | `/feedback` | Submit or update thumbs up/down on an assistant message |
 | `GET` | `/feedback` | List feedback records (paginated; admin review) |
 
-### Data captured (for future use)
+### Data captured
 
 Each feedback row includes:
 
@@ -377,13 +492,6 @@ Each feedback row includes:
 | `assistantAnswer` | Full assistant response that was rated |
 | `rating` | `UP` or `DOWN` |
 | `conversationId`, message IDs | Link back to full agent run / plan / tools in message metadata |
-
-### Planned uses
-
-- **Monitoring** — Track downvote rate over time; slice by conversation, user, or date in the admin UI.
-- **Prompt iteration** — Build golden sets from highly-rated answers; inspect downvoted pairs to revise agent prompts.
-- **Fine-tuning / eval** — Export `(userQuery, assistantAnswer, rating)` as training or eval data once volume is sufficient.
-- **Langfuse correlation** — Join feedback with agent traces (planned: store `traceId` on assistant message metadata) to compare user satisfaction vs automated judge scores.
 
 Implementation: `services/ai-gateway-service/src/services/feedback.service.ts`, `services/frontend/src/components/chat/message-feedback.tsx`.
 
