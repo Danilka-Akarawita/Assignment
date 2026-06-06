@@ -2,9 +2,10 @@ FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-# Install dependencies for local package links first.
-COPY packages/shared/package*.json ./packages/shared/
+# Copy full shared package so local file dependency lifecycle has tsconfig/src available.
+COPY packages/shared ./packages/shared
 COPY services/auth-service/package*.json ./services/auth-service/
+COPY services/auth-service/prisma ./services/auth-service/prisma
 
 RUN npm ci --ignore-scripts --prefix ./packages/shared
 RUN npm ci --ignore-scripts --prefix ./services/auth-service
