@@ -34,18 +34,32 @@ Five application services share one PostgreSQL database (with **pgvector**), plu
 ```mermaid
 %%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 95,'rankSpacing': 120},'themeVariables': {'fontFamily':'Arial','fontSize':'26px','lineColor':'#4b5563'}}}%%
 flowchart LR
-  FE[Next.js Frontend :3000]
-  AUTH[auth-service :3001]
-  GW[ai-gateway-service :3004]
-  KNOW[knowledge-service :3002]
-  TOOLS[tool-execution-service :3003]
-  ADK[Google ADK Agents]
-  PG[(PostgreSQL + pgvector :5432)]
-  RMQ[RabbitMQ :5672]
-  REDIS[(Redis :6379)]
-  GEMINI[Google Gemini]
-  OPENAI[OpenAI]
-  LF[Langfuse]
+  subgraph client [Client]
+    FE[Next.js Frontend :3000]
+  end
+
+  subgraph orchestration [Orchestration]
+    GW[ai-gateway-service :3004]
+    ADK[Google ADK Agents]
+  end
+
+  subgraph core [Core services]
+    AUTH[auth-service :3001]
+    KNOW[knowledge-service :3002]
+    TOOLS[tool-execution-service :3003]
+  end
+
+  subgraph infra [Infrastructure]
+    PG[(PostgreSQL + pgvector :5432)]
+    RMQ[RabbitMQ :5672]
+    REDIS[(Redis :6379)]
+  end
+
+  subgraph externalGroup [External APIs]
+    GEMINI[Google Gemini]
+    OPENAI[OpenAI]
+    LF[Langfuse]
+  end
 
   FE --> AUTH
   FE --> GW
@@ -71,6 +85,12 @@ flowchart LR
 
   ADK --> GEMINI
   GW --> LF
+
+  style client fill:transparent,stroke:#94a3b8,stroke-width:1.5px
+  style orchestration fill:transparent,stroke:#94a3b8,stroke-width:1.5px
+  style core fill:transparent,stroke:#94a3b8,stroke-width:1.5px
+  style infra fill:transparent,stroke:#94a3b8,stroke-width:1.5px
+  style externalGroup fill:transparent,stroke:#94a3b8,stroke-width:1.5px
 
   classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
   classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
