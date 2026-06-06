@@ -86,16 +86,18 @@ flowchart TB
   ADK --> GEMINI
   GW --> LF
 
-  classDef client fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-  classDef orchestration fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
-  classDef service fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
-  classDef infra fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
+  classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
+  classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
+  classDef gateway fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
+  classDef services fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
+  classDef storage fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
   classDef external fill:#fee2e2,stroke:#dc2626,color:#7f1d1d,stroke-width:2px;
 
-  class FE client;
-  class GW,ADK orchestration;
-  class AUTH,KNOW,TOOLS service;
-  class PG,REDIS,RMQ infra;
+  class FE ui;
+  class AUTH auth;
+  class GW,ADK gateway;
+  class KNOW,TOOLS services;
+  class PG,REDIS,RMQ storage;
   class GEMINI,OPENAI,LF external;
 ```
 
