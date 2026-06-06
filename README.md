@@ -32,7 +32,7 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 Five application services share one PostgreSQL database (with **pgvector**), plus **Redis** (embedding cache) and **RabbitMQ** (async jobs).
 
 ```mermaid
-%%{init: {'flowchart': {'curve':'linear'}}}%%
+%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 60,'rankSpacing': 85},'themeVariables': {'fontFamily':'Arial','fontSize':'18px','lineColor':'#4b5563','clusterBkg':'#f8fafc','clusterBorder':'#94a3b8'}}}%%
 flowchart TB
   subgraph client [Client]
     FE[Next.js Frontend :3000]
@@ -85,6 +85,18 @@ flowchart TB
 
   ADK --> GEMINI
   GW --> LF
+
+  classDef client fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
+  classDef orchestration fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
+  classDef service fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
+  classDef infra fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
+  classDef external fill:#fee2e2,stroke:#dc2626,color:#7f1d1d,stroke-width:2px;
+
+  class FE client;
+  class GW,ADK orchestration;
+  class AUTH,KNOW,TOOLS service;
+  class PG,REDIS,RMQ infra;
+  class GEMINI,OPENAI,LF external;
 ```
 
 ### Data & messaging flows
@@ -114,7 +126,7 @@ All services connect to the same Postgres instance in development; in production
 The **ai-gateway-service** runs a **Google ADK** multi-step workflow. The flow below shows the agent pipeline and service interactions.
 
 ```mermaid
-%%{init: {'flowchart': {'curve':'linear'}}}%%
+%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 60,'rankSpacing': 85},'themeVariables': {'fontFamily':'Arial','fontSize':'18px','lineColor':'#4b5563','clusterBkg':'#f8fafc','clusterBorder':'#94a3b8'}}}%%
 flowchart TB
   UI[Frontend UI]
   AUTH[auth-service]
@@ -147,6 +159,20 @@ flowchart TB
   SA --> JUDGE
   JUDGE -->|Final response| API
   API -->|Run status + final answer| UI
+
+  classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
+  classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
+  classDef gateway fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
+  classDef agents fill:#fce7f3,stroke:#db2777,color:#831843,stroke-width:2px;
+  classDef services fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
+  classDef storage fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
+
+  class UI ui;
+  class AUTH auth;
+  class API,RMQ gateway;
+  class QR,PA,TE,SA,JUDGE agents;
+  class TS,KS services;
+  class DB storage;
 ```
 
 ### Agents
