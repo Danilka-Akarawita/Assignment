@@ -32,7 +32,6 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 Five application services share one PostgreSQL database (with **pgvector**), plus **Redis** (embedding cache) and **RabbitMQ** (async jobs).
 
 ```mermaid
-%%{init: {'theme':'base','flowchart': {'curve':'linear'}, 'themeVariables': {'fontFamily':'Inter, Arial, sans-serif','primaryColor':'#eaf3ff','primaryTextColor':'#1f2937','primaryBorderColor':'#8fb6e8','secondaryColor':'#eefbf3','tertiaryColor':'#f5f3ff','lineColor':'#64748b','clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1'}}}%%
 flowchart LR
   subgraph client [Client]
     FE[Next.js Frontend :3000]
@@ -85,18 +84,6 @@ flowchart LR
 
   ADK --> GEMINI
   GW --> LF
-
-  classDef clientNode fill:#eaf3ff,stroke:#8fb6e8,color:#1f2937;
-  classDef gatewayNode fill:#f3f7ff,stroke:#8aa7e8,color:#1f2937;
-  classDef serviceNode fill:#eefbf3,stroke:#86c6a1,color:#1f2937;
-  classDef infraNode fill:#fff8e8,stroke:#e0be7c,color:#1f2937;
-  classDef extNode fill:#f5f3ff,stroke:#b6a7e8,color:#1f2937;
-
-  class FE clientNode;
-  class GW,ADK gatewayNode;
-  class AUTH,KNOW,TOOLS serviceNode;
-  class PG,REDIS,RMQ infraNode;
-  class GEMINI,OPENAI,LF extNode;
 ```
 
 ### Data & messaging flows
@@ -126,7 +113,6 @@ All services connect to the same Postgres instance in development; in production
 The **ai-gateway-service** runs a **Google ADK** multi-step workflow. The flow below shows the agent pipeline and service interactions.
 
 ```mermaid
-%%{init: {'theme':'base','flowchart': {'curve':'linear'}, 'themeVariables': {'fontFamily':'Inter, Arial, sans-serif','lineColor':'#64748b','clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1'}}}%%
 flowchart LR
   UI[Frontend UI]
   AUTH[auth-service]
@@ -159,20 +145,6 @@ flowchart LR
   SA --> JUDGE
   JUDGE -->|Final response| API
   API -->|AgentRun status + answer| UI
-
-  classDef uiNode fill:#e6f4ff,stroke:#7db0dd,color:#1f2937;
-  classDef authNode fill:#fff3e6,stroke:#e2b37a,color:#1f2937;
-  classDef gatewayNode fill:#edf2ff,stroke:#8ea2e6,color:#1f2937;
-  classDef agentNode fill:#f0ecff,stroke:#a595e6,color:#1f2937;
-  classDef serviceNode fill:#e9fcef,stroke:#7dc99b,color:#1f2937;
-  classDef storageNode fill:#fffbe8,stroke:#d6c873,color:#1f2937;
-
-  class UI uiNode;
-  class AUTH authNode;
-  class API,RMQ gatewayNode;
-  class QR,PA,TE,SA,JUDGE agentNode;
-  class TS,KS serviceNode;
-  class DB storageNode;
 ```
 
 ### Agents
