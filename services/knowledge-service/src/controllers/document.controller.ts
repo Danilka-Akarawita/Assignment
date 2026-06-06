@@ -1,4 +1,4 @@
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import type { AuthRequest } from '../middleware/auth.js';
 import { searchSchema, updateMetadataSchema } from '../schemas/document.schema.js';
@@ -8,8 +8,9 @@ import { logger } from '../utils/logger.js';
 
 const documentService = new DocumentService();
 const searchService = new SearchService();
+type AuthedRequest = Request & AuthRequest;
 
-export const uploadDocument = async (req: AuthRequest, res: Response) => {
+export const uploadDocument = async (req: AuthedRequest, res: Response) => {
   try {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -35,14 +36,14 @@ export const uploadDocument = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const listDocuments = async (req: AuthRequest, res: Response) => {
+export const listDocuments = async (req: AuthedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   const documents = await documentService.listByUser(req.user.id);
   res.json({ documents, total: documents.length });
 };
 
-export const getDocument = async (req: AuthRequest, res: Response) => {
+export const getDocument = async (req: AuthedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   const documentId = parseInt(String(req.params.id), 10);
@@ -56,7 +57,7 @@ export const getDocument = async (req: AuthRequest, res: Response) => {
   res.json({ document });
 };
 
-export const deleteDocument = async (req: AuthRequest, res: Response) => {
+export const deleteDocument = async (req: AuthedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   const documentId = parseInt(String(req.params.id), 10);
@@ -70,7 +71,7 @@ export const deleteDocument = async (req: AuthRequest, res: Response) => {
   res.json({ message: 'Document deleted' });
 };
 
-export const updateDocumentMetadata = async (req: AuthRequest, res: Response) => {
+export const updateDocumentMetadata = async (req: AuthedRequest, res: Response) => {
   try {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -98,7 +99,7 @@ export const updateDocumentMetadata = async (req: AuthRequest, res: Response) =>
   }
 };
 
-export const searchDocuments = async (req: AuthRequest, res: Response) => {
+export const searchDocuments = async (req: AuthedRequest, res: Response) => {
   try {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
