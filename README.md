@@ -109,23 +109,12 @@ flowchart TB
   API[ai-gateway-service API]
   RMQ[(RabbitMQ chat queue)]
 
-  subgraph pipeline [Per-request agentic pipeline]
-    QR["QueryRewriterAgent<br/>standalone pre-step"]
-    subgraph shell ["ADK SequentialAgent — fixed phase order only"]
-      PA["PlanAgent"]
-      TE["TodoExecutorAgent"]
-      SA["SynthesisAgent"]
-      PA ==>|phase 1| TE
-      TE ==>|phase 2| SA
-    end
-    PLAN[("Dynamic plan<br/>1–7 todos + toolHints")]
-    TOOLS_LOOP{{"LLM tool calls<br/>0..N per run"}}
-    JUDGE["Answer judge<br/>synthesis afterModelCallback"]
-    QR -.->|resolved query| PA
-    PA -.-> PLAN
-    PLAN -.-> TE
-    TE -.-> TOOLS_LOOP
-    SA -.-> JUDGE
+  subgraph agents [Gateway Agent Flow]
+    QR[QueryRewriterAgent]
+    PA[PlanAgent]
+    TE[TodoExecutorAgent]
+    SA[SynthesisAgent]
+    JUDGE[Answer Judge]
   end
 
   TS[tool-execution-service]
@@ -136,10 +125,14 @@ flowchart TB
   UI -->|POST message + JWT| API
   API -->|Publish job| RMQ
   RMQ -->|Worker consumes job| QR
-  TOOLS_LOOP -->|knowledge_retrieval / sql_query / calculator| TS
+  QR --> PA
+  PA --> TE
+  TE -->|Tool calls| TS
   TS -->|RAG search| KS
   KS --> DB
   TS --> DB
+  TE --> SA
+  SA --> JUDGE
   JUDGE -->|Final response| API
   API -->|Run status + final answer| UI
 
@@ -147,7 +140,6 @@ flowchart TB
   classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
   classDef gateway fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
   classDef agents fill:#fce7f3,stroke:#db2777,color:#831843,stroke-width:2px;
-  classDef dynamic fill:#fff7ed,stroke:#f97316,color:#9a3412,stroke-width:2px,stroke-dasharray:5 5;
   classDef services fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
   classDef storage fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
 
@@ -155,12 +147,9 @@ flowchart TB
   class AUTH auth;
   class API,RMQ gateway;
   class QR,PA,TE,SA,JUDGE agents;
-  class PLAN,TOOLS_LOOP dynamic;
   class TS,KS services;
   class DB storage;
 ```
-
-**Legend:** thick arrows (`==>`) = fixed ADK phase order; dashed arrows = LLM-driven, different on every request.
 
 ### Agents
 
