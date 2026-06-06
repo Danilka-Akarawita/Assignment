@@ -5,9 +5,10 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "prebuild": "prisma generate",
+    "prebuild": "npm run build --prefix ../../packages/shared && prisma generate",
     "build": "tsc -p tsconfig.json",
     "db:migrate": "prisma migrate deploy",
+    "prestart": "npm run build --prefix ../../packages/shared && npm run build",
     "start": "node dist/index.js",
     "test": "tsx --test tests/gateway.test.ts"
   },

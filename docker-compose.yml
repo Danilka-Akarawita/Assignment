@@ -62,9 +62,15 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      ai-gateway-service:
+        condition: service_started
+      knowledge-service:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql://app_user:app_pass@db:5432/app_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      AI_GATEWAY_SERVICE_URL: http://ai-gateway-service:3004
+      KNOWLEDGE_SERVICE_URL: http://knowledge-service:3002
     env_file:
       - ./services/auth-service/.env
     networks:
@@ -125,12 +131,8 @@ services:
       - "3000:3000"
     depends_on:
       - auth-service
-      - ai-gateway-service
-      - knowledge-service
     environment:
-      NEXT_PUBLIC_AUTH_API_URL: http://localhost:3001
-      NEXT_PUBLIC_GATEWAY_API_URL: http://localhost:3004
-      NEXT_PUBLIC_KNOWLEDGE_API_URL: http://localhost:3002
+      NEXT_PUBLIC_API_URL: http://localhost:3001
     networks:
       - app-network
     restart: unless-stopped

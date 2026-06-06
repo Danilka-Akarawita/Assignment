@@ -4,12 +4,13 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "prebuild": "prisma generate",
+    "prebuild": "npm run build --prefix ../../packages/shared && prisma generate",
     "build": "tsc -p tsconfig.json",
+    "prestart": "npm run build --prefix ../../packages/shared && npm run build",
     "start": "node dist/index.js",
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
-    "test": "tsx --test tests/auth.test.ts"
+    "test": "tsx --test tests/auth.test.ts tests/service-proxy.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -25,11 +26,12 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.2.0",
+    "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.21.0",
-    "prisma": "^7.8.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
+    "prisma": "^7.8.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

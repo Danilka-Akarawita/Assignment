@@ -4,24 +4,24 @@ Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 + shadcn/ui.
 
 ## Features
 
-- **Login / Register** — `auth-service` (`POST /auth/login`, `/auth/register`)
-- **Chat** — `ai-gateway-service` conversations & messages (async agent runs with live todo polling)
+- **Login / Register** — via API gateway (`POST /auth/login`, `/auth/register`)
+- **Chat** — proxied through auth-service to `ai-gateway-service` (async agent runs with live todo polling)
 - **Streaming UX** — assistant replies render with a typewriter effect; tool steps update while the agent runs
 - **Markdown** — `react-markdown` + GFM for assistant messages
-- **Knowledge** — upload, list, delete, and semantic search via `knowledge-service`
+- **Knowledge** — upload, list, delete, and semantic search (proxied via auth-service)
 - **Conversation history** — sidebar with create/delete
 - **Tool execution panel** — live todo status and tool hints (`knowledge_retrieval`, `sql`, `calculator`)
 
 ## Prerequisites
 
-Backend services running locally:
+Backend services running locally (frontend talks only to **auth-service** on port 3001, which proxies to other services):
 
-| Service | Port |
-|---------|------|
-| auth-service | 3001 |
-| knowledge-service | 3002 |
-| tool-execution-service | 3003 |
-| ai-gateway-service | 3004 |
+| Service | Port | Frontend access |
+|---------|------|-----------------|
+| auth-service (API gateway) | 3001 | Yes — single entry point |
+| knowledge-service | 3002 | Internal only |
+| tool-execution-service | 3003 | Internal only |
+| ai-gateway-service | 3004 | Internal only |
 
 Copy environment:
 

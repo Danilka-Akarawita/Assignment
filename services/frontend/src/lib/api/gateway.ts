@@ -8,7 +8,7 @@ import type {
 } from '@/lib/types';
 import { apiFetch } from './http';
 
-const base = config.gatewayApiUrl;
+const base = config.apiUrl;
 
 export async function listConversations(
   accessToken: string

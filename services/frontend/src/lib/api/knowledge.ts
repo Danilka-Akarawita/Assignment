@@ -2,7 +2,7 @@ import { config } from '@/lib/config';
 import type { KnowledgeDocument } from '@/lib/types';
 import { apiFetch } from './http';
 
-const base = config.knowledgeApiUrl;
+const base = config.apiUrl;
 
 export async function listDocuments(
   accessToken: string

@@ -2,7 +2,7 @@ import { config } from '@/lib/config';
 import type { AuthTokens, User } from '@/lib/types';
 import { apiFetch } from './http';
 
-const base = config.authApiUrl;
+const base = config.apiUrl;
 
 export async function login(email: string, password: string): Promise<AuthTokens> {
   return apiFetch(`${base}/auth/login`, {

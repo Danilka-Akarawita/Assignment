@@ -5,9 +5,7 @@
 import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
 
-const AUTH = process.env.NEXT_PUBLIC_AUTH_API_URL ?? 'http://localhost:3001';
-const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_API_URL ?? 'http://localhost:3004';
-const KNOWLEDGE = process.env.NEXT_PUBLIC_KNOWLEDGE_API_URL ?? 'http://localhost:3002';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 const email = `fe-test-${Date.now()}@example.com`;
 const password = 'TestPass123!';
@@ -22,7 +20,7 @@ async function json(url, options = {}) {
 
 describe('Frontend API integration', { skip: process.env.SKIP_INTEGRATION === '1' }, () => {
   before(async () => {
-    const health = await json(`${AUTH}/health`);
+    const health = await json(`${API}/health`);
     if (!health.res.ok) {
       console.warn('Auth service not reachable — skipping integration tests');
       process.env.SKIP_INTEGRATION = '1';
@@ -30,7 +28,7 @@ describe('Frontend API integration', { skip: process.env.SKIP_INTEGRATION === '1
   });
 
   it('registers and logs in', async () => {
-    const reg = await json(`${AUTH}/auth/register`, {
+    const reg = await json(`${API}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -40,7 +38,7 @@ describe('Frontend API integration', { skip: process.env.SKIP_INTEGRATION === '1
       `register: ${reg.res.status} ${JSON.stringify(reg.body)}`
     );
 
-    const login = await json(`${AUTH}/auth/login`, {
+    const login = await json(`${API}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -55,7 +53,7 @@ describe('Frontend API integration', { skip: process.env.SKIP_INTEGRATION === '1
   });
 
   it('creates conversation and sends async message', async () => {
-    const create = await json(`${GATEWAY}/conversations`, {
+    const create = await json(`${API}/conversations`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -66,7 +64,7 @@ describe('Frontend API integration', { skip: process.env.SKIP_INTEGRATION === '1
     assert.equal(create.res.status, 201);
     const convId = create.body.conversation.id;
 
-    const msg = await json(`${GATEWAY}/conversations/${convId}/messages`, {
+    const msg = await json(`${API}/conversations/${convId}/messages`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -82,7 +80,7 @@ describe('Frontend API integration', { skip: process.env.SKIP_INTEGRATION === '1
     let agentRun = null;
     for (let i = 0; i < 120; i++) {
       const poll = await json(
-        `${GATEWAY}/conversations/agent-runs/${agentRunId}`,
+        `${API}/conversations/agent-runs/${agentRunId}`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
       assert.equal(poll.res.status, 200, JSON.stringify(poll.body));
@@ -98,7 +96,7 @@ describe('Frontend API integration', { skip: process.env.SKIP_INTEGRATION === '1
   });
 
   it('lists knowledge documents', async () => {
-    const list = await json(`${KNOWLEDGE}/documents`, {
+    const list = await json(`${API}/documents`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     assert.equal(list.res.status, 200);

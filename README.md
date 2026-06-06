@@ -33,6 +33,31 @@ Five application services share one PostgreSQL database (with **pgvector**), plu
 
 ![System architecture](docs/images/architecture.png)
 
+### API gateway (auth-service)
+
+The **frontend** talks to a **single backend URL** — **auth-service** (port 3001). Auth-service acts as an **API gateway**: it handles authentication locally and **reverse-proxies** all other HTTP traffic to internal services.
+
+```mermaid
+flowchart LR
+  FE[frontend :3000] --> AUTH[auth-service :3001]
+  AUTH -->|/auth, /users| AUTH
+  AUTH -->|/conversations, /feedback| GW[ai-gateway-service :3004]
+  AUTH -->|/documents| KS[knowledge-service :3002]
+  GW --> TOOLS[tool-execution-service :3003]
+  GW --> KS
+```
+
+| Path prefix | Handled by | Proxied to |
+|-------------|------------|------------|
+| `/auth/*` | auth-service | — (local) |
+| `/users/*` | auth-service | — (local) |
+| `/conversations/*`, `/feedback/*` | auth-service | ai-gateway-service |
+| `/documents/*` | auth-service | knowledge-service |
+
+Proxied routes require a valid JWT at the gateway edge; downstream services still validate the token for defense in depth. **tool-execution-service** is not exposed to the browser — only ai-gateway-service calls it server-to-server.
+
+Frontend env: `NEXT_PUBLIC_API_URL=http://localhost:3001` (replaces separate gateway/knowledge URLs).
+
 ### Data & messaging flows
 
 | Flow | Mechanism | Purpose |
@@ -86,7 +111,7 @@ Prompts are centralized per service — see [Prompts](#prompts).
 | Service | Port | Stack | Responsibility |
 |---------|------|-------|----------------|
 | [frontend](services/frontend) | 3000 | Next.js 16, React 19, Zustand | Login, chat UI, knowledge upload, agent-run polling, thumbs feedback |
-| [auth-service](services/auth-service) | 3001 | Express, JWT, bcrypt | Register, login, refresh tokens |
+| [auth-service](services/auth-service) | 3001 | Express, JWT, bcrypt, reverse proxy | **API gateway** — auth, JWT validation, proxy to gateway & knowledge |
 | [knowledge-service](services/knowledge-service) | 3002 | Express, pgvector, OpenAI | Upload, chunk, embed, metadata-enriched search |
 | [tool-execution-service](services/tool-execution-service) | 3003 | Express, mathjs, AI SDK | Calculator, NL→SQL, knowledge retrieval proxy |
 | [ai-gateway-service](services/ai-gateway-service) | 3004 | Express, Google ADK, Langfuse | Chat, agent workflow, conversation memory |
@@ -144,6 +169,8 @@ The gateway **forwards the user's access token** to tool-execution-service so au
 Users have a `role` field (default `user`). The gateway exposes `requireRole()` middleware for admin-only routes when needed.
 
 ### Frontend
+
+The browser calls **only auth-service** (`NEXT_PUBLIC_API_URL`). Chat and knowledge paths are proxied by the gateway; the client does not need separate service URLs.
 
 Access token is held in client state and attached to all API requests via `apiFetch`. On 401, the client should refresh or redirect to login.
 
@@ -372,17 +399,15 @@ Implementation: `services/ai-gateway-service/src/services/feedback.service.ts`, 
 
 ### One-time setup
 
-Copy each service `.env.example` → `.env` and fill in secrets:
+Copy each service `.env.example` → `.env` and fill in secrets, then install + build everything (links `@ai-assistant/shared` and compiles service `dist/`):
 
 ```powershell
 npm install
-npm install --prefix services/auth-service
-npm install --prefix services/knowledge-service
-npm install --prefix services/tool-execution-service
-npm install --prefix services/ai-gateway-service
-npm install --prefix services/frontend
 copy services\frontend\.env.local.example services\frontend\.env.local
+npm run setup
 ```
+
+`npm run setup` = build shared package → `npm install` in each service → `npm run build:all`. Re-run it after pulling changes that touch `packages/shared` or service TypeScript.
 
 Run Prisma migrations for each service that owns a schema, then (optional) seed demo data:
 
@@ -486,6 +511,9 @@ All service Dockerfiles use multi-stage builds: **shared-builder → deps → bu
 | Variable | Service | Purpose |
 |----------|---------|---------|
 | `JWT_SECRET` | auth, gateway, knowledge, tools | Must match across services |
+| `AI_GATEWAY_SERVICE_URL` | auth | Upstream URL for chat/feedback proxy |
+| `KNOWLEDGE_SERVICE_URL` | auth | Upstream URL for documents proxy |
+| `NEXT_PUBLIC_API_URL` | frontend | Single API entry (auth-service) |
 | `GEMINI_API_KEY` | gateway | ADK agents + answer judge |
 | `GEMINI_MODEL` | gateway | Default `gemini-3.1-flash-lite` (all ADK agents + judge) |
 | `OPENAI_API_KEY` | knowledge, tools | Embeddings, metadata, SQL |
@@ -499,62 +527,4 @@ See each service's `.env.example` for the full list.
 
 ---
 
-## Future work (recommended order)
 
-Work in this sequence to maximize value and avoid rework:
-
-### Phase 1 — Production readiness (do first)
-
-1. **Secrets & config** — managed secrets (not `.env` in prod), unique JWT secrets, restrict CORS to frontend origin.
-2. **Internal service auth** — replace JWT-in-RabbitMQ with service tokens or user-id + signed job context.
-3. ~~**Database migrations CI**~~ — done in `.github/workflows/ci.yml` (test job).
-4. **Health checks & graceful shutdown** — drain RabbitMQ consumers, flush Langfuse on SIGTERM (partially done).
-5. **Horizontally scale gateway workers** — multiple consumers on `GATEWAY_AGENT_QUEUE` with prefetch=1 (already set).
-
-### Phase 2 — Observability completeness
-
-6. **Langfuse in tool-execution + knowledge** — trace SQL generation, embeddings, metadata extraction for true cost per query.
-7. **Store `traceId` on messages** — link UI feedback to Langfuse traces.
-8. **Dashboards** — p95 latency, tokens/cost per conversation, tool error rate, judge verdict distribution.
-9. **Alerting** — pipeline failures, RabbitMQ queue depth, ingestion backlog.
-
-### Phase 3 — UX & latency
-
-10. **SSE or WebSocket streaming** — stream synthesis tokens instead of 2s polling (frontend hook: `use-streaming-chat.ts`).
-11. **Fast path router** — skip full plan/execute for simple FAQ-style questions (single RAG call).
-12. **Conversation title generation** — auto-title from first message.
-
-### Phase 4 — RAG & SQL scale
-
-13. **Schema retrieval (Phase B)** — embed table/column descriptions; retrieve top-K schema per SQL question.
-14. **Semantic layer (Phase C)** — curated views for large or multi-tenant analytics schemas.
-15. **Hybrid search** — BM25 + vector for knowledge chunks.
-16. **Re-ranking** — cross-encoder or LLM rerank on top-K chunks before synthesis.
-
-### Phase 5 — Agent quality & safety
-
-17. **Stronger tenancy** — Postgres RLS for knowledge tables; per-tenant schema routing for SQL.
-18. **Tool allowlists per role** — e.g. SQL only for `analyst` role.
-19. **Offline eval suite** — golden questions + Langfuse datasets; regression on plan quality and SQL accuracy.
-20. **Human-in-the-loop** — escalate low judge scores to review queue.
-
-### Phase 6 — Platform features
-
-21. **Multi-modal documents** — images, DOCX, HTML extraction.
-22. **Shared team knowledge bases** — org-level documents with ACLs.
-23. **Plugin / MCP tool registry** — register third-party tools without redeploying gateway.
-24. **Multi-region deployment** — read replicas, vector index partitioning by tenant.
-
----
-
-## Related docs
-
-- [Knowledge retrieval pipeline](docs/KNOWLEDGE_RETRIEVAL.md)
-- [Langfuse setup (gateway)](services/ai-gateway-service/docs/LANGFUSE.md)
-- [Frontend README](services/frontend/README.md)
-
----
-
-## License
-
-ISC (per service `package.json`).
