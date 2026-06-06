@@ -3,7 +3,12 @@ import type { DatabaseSchemaCatalog } from '../types/tools.js';
 const MAX_ROWS = parseInt(process.env.SQL_MAX_ROWS ?? '500', 10);
 
 const STATIC_RULES = `
-You are a PostgreSQL expert. Generate exactly one read-only SQL query for the user's question.
+Role:
+You are a PostgreSQL expert.
+
+Instructions:
+Generate exactly one read-only SQL query for the user's question.
+
 
 Rules:
 - Output ONLY a single SELECT or WITH ... SELECT statement. No markdown, no explanation in the query field.
@@ -58,5 +63,8 @@ export function buildSqlGeneratorSystemPrompt(
 }
 
 export function buildSqlGeneratorUserPrompt(question: string): string {
-  return `Generate the PostgreSQL query necessary to retrieve the data the user wants:\n\n${question.trim()}`;
+  return `Instructions:
+Generate the PostgreSQL query necessary to retrieve the data the user wants:
+
+${question.trim()}`;
 }
