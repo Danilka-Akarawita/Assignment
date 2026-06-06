@@ -32,7 +32,7 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 Five application services share one PostgreSQL database (with **pgvector**), plus **Redis** (embedding cache) and **RabbitMQ** (async jobs).
 
 ```mermaid
-%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 60,'rankSpacing': 85},'themeVariables': {'fontFamily':'Arial','fontSize':'18px','lineColor':'#4b5563','clusterBkg':'#f8fafc','clusterBorder':'#94a3b8'}}}%%
+%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 75,'rankSpacing': 100},'themeVariables': {'fontFamily':'Arial','fontSize':'22px','lineColor':'#4b5563','clusterBkg':'transparent','clusterBorder':'#94a3b8'}}}%%
 flowchart TB
   subgraph client [Client]
     FE[Next.js Frontend :3000]
@@ -85,6 +85,12 @@ flowchart TB
 
   ADK --> GEMINI
   GW --> LF
+
+  style client fill:transparent,stroke:#94a3b8,stroke-width:1.5px
+  style gateway fill:transparent,stroke:#94a3b8,stroke-width:1.5px
+  style core fill:transparent,stroke:#94a3b8,stroke-width:1.5px
+  style infra fill:transparent,stroke:#94a3b8,stroke-width:1.5px
+  style external fill:transparent,stroke:#94a3b8,stroke-width:1.5px
 
   classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
   classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
