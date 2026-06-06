@@ -32,7 +32,8 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 Five application services share one PostgreSQL database (with **pgvector**), plus **Redis** (embedding cache) and **RabbitMQ** (async jobs).
 
 ```mermaid
-flowchart LR
+%%{init: {'flowchart': {'curve':'linear'}}}%%
+flowchart TB
   subgraph client [Client]
     FE[Next.js Frontend :3000]
   end
@@ -65,9 +66,9 @@ flowchart LR
   FE -->|JWT auth| GW
   FE -->|JWT auth| KNOW
 
-  GW -->|JWT forward| TOOLS
   GW -->|Document list| KNOW
-  TOOLS -->|Search| KNOW
+  GW -->|JWT forward| TOOLS
+  TOOLS -->|Knowledge search| KNOW
 
   AUTH --> PG
   GW --> PG
@@ -113,7 +114,8 @@ All services connect to the same Postgres instance in development; in production
 The **ai-gateway-service** runs a **Google ADK** multi-step workflow. The flow below shows the agent pipeline and service interactions.
 
 ```mermaid
-flowchart LR
+%%{init: {'flowchart': {'curve':'linear'}}}%%
+flowchart TB
   UI[Frontend UI]
   AUTH[auth-service]
   API[ai-gateway-service API]
@@ -133,18 +135,18 @@ flowchart LR
 
   UI -->|Login / token refresh| AUTH
   UI -->|POST message + JWT| API
-  API -->|Queue job| RMQ
-  RMQ -->|Worker consumes| QR
+  API -->|Publish job| RMQ
+  RMQ -->|Worker consumes job| QR
   QR --> PA
   PA --> TE
-  TE -->|knowledge_retrieval / sql / calculator| TS
+  TE -->|Tool calls| TS
   TS -->|RAG search| KS
   KS --> DB
   TS --> DB
   TE --> SA
   SA --> JUDGE
   JUDGE -->|Final response| API
-  API -->|AgentRun status + answer| UI
+  API -->|Run status + final answer| UI
 ```
 
 ### Agents
