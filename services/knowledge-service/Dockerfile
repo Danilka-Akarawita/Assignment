@@ -8,7 +8,7 @@ COPY services/knowledge-service/package*.json ./services/knowledge-service/
 COPY services/knowledge-service/prisma ./services/knowledge-service/prisma
 
 RUN npm ci --ignore-scripts --prefix ./packages/shared
-RUN npm ci --ignore-scripts --prefix ./services/knowledge-service
+RUN npm install --ignore-scripts --prefix ./services/knowledge-service
 
 
 FROM deps AS builder
