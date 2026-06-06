@@ -55,7 +55,7 @@ All services connect to the same Postgres instance in development; in production
 
 ---
 
-## Agent orchestration
+## Multi Step Agent orchestration
 
 The **ai-gateway-service** runs a **Google ADK** agentic pipeline. The **orchestration shell** is a fixed `SequentialAgent` (plan → execute → synthesize), but **each request is LLM-planned**: todo count, tool choice, and tool-call sequence are decided at runtime — not hardcoded.
 
