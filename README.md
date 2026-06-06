@@ -36,27 +36,18 @@ Five application services share one PostgreSQL database (with **pgvector**), plu
 flowchart TB
   UI[Frontend UI]
   AUTH[auth-service]
-  GW[ai-gateway-service]
+  GW["ai-gateway-service<br/>ADK: query rewrite + agentic plan/execute/synthesize"]
   KNOW[knowledge-service]
   TOOLS[tool-execution-service]
   RMQ[(RabbitMQ)]
   DB[(PostgreSQL + pgvector)]
   REDIS[(Redis)]
 
-  subgraph agents [Google ADK Agents]
-    QR[QueryRewriterAgent]
-    PA[PlanAgent]
-    TE[TodoExecutorAgent]
-    SA[SynthesisAgent]
-    QR --> PA --> TE --> SA
-  end
-
   UI -->|HTTP| AUTH
   UI -->|HTTP| GW
   UI -->|HTTP| KNOW
 
-  GW -->|Run pipeline| QR
-  GW -->|POST /tools/execute| TOOLS
+  GW -->|LLM-chosen tool calls| TOOLS
   TOOLS -->|RAG search| KNOW
 
   AUTH --> DB
@@ -74,14 +65,12 @@ flowchart TB
   classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
   classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
   classDef gateway fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
-  classDef agents fill:#fce7f3,stroke:#db2777,color:#831843,stroke-width:2px;
   classDef services fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
   classDef storage fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
 
   class UI ui;
   class AUTH auth;
   class GW,RMQ gateway;
-  class QR,PA,TE,SA agents;
   class KNOW,TOOLS services;
   class DB,REDIS storage;
 ```
@@ -110,7 +99,7 @@ All services connect to the same Postgres instance in development; in production
 
 ## Agent orchestration
 
-The **ai-gateway-service** runs a **Google ADK** multi-step workflow. The flow below shows the agent pipeline and service interactions.
+The **ai-gateway-service** runs a **Google ADK** agentic pipeline. The **orchestration shell** is a fixed `SequentialAgent` (plan → execute → synthesize), but **each request is LLM-planned**: todo count, tool choice, and tool-call sequence are decided at runtime — not hardcoded.
 
 ```mermaid
 %%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 60,'rankSpacing': 85},'themeVariables': {'fontFamily':'Arial','fontSize':'18px','lineColor':'#4b5563','clusterBkg':'#f8fafc','clusterBorder':'#94a3b8'}}}%%
@@ -120,12 +109,23 @@ flowchart TB
   API[ai-gateway-service API]
   RMQ[(RabbitMQ chat queue)]
 
-  subgraph agents [Gateway Agent Flow]
-    QR[QueryRewriterAgent]
-    PA[PlanAgent]
-    TE[TodoExecutorAgent]
-    SA[SynthesisAgent]
-    JUDGE[Answer Judge]
+  subgraph pipeline [Per-request agentic pipeline]
+    QR["QueryRewriterAgent<br/>standalone pre-step"]
+    subgraph shell ["ADK SequentialAgent — fixed phase order only"]
+      PA["PlanAgent"]
+      TE["TodoExecutorAgent"]
+      SA["SynthesisAgent"]
+      PA ==>|phase 1| TE
+      TE ==>|phase 2| SA
+    end
+    PLAN[("Dynamic plan<br/>1–7 todos + toolHints")]
+    TOOLS_LOOP{{"LLM tool calls<br/>0..N per run"}}
+    JUDGE["Answer judge<br/>synthesis afterModelCallback"]
+    QR -.->|resolved query| PA
+    PA -.-> PLAN
+    PLAN -.-> TE
+    TE -.-> TOOLS_LOOP
+    SA -.-> JUDGE
   end
 
   TS[tool-execution-service]
@@ -136,14 +136,10 @@ flowchart TB
   UI -->|POST message + JWT| API
   API -->|Publish job| RMQ
   RMQ -->|Worker consumes job| QR
-  QR --> PA
-  PA --> TE
-  TE -->|Tool calls| TS
+  TOOLS_LOOP -->|knowledge_retrieval / sql_query / calculator| TS
   TS -->|RAG search| KS
   KS --> DB
   TS --> DB
-  TE --> SA
-  SA --> JUDGE
   JUDGE -->|Final response| API
   API -->|Run status + final answer| UI
 
@@ -151,6 +147,7 @@ flowchart TB
   classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
   classDef gateway fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
   classDef agents fill:#fce7f3,stroke:#db2777,color:#831843,stroke-width:2px;
+  classDef dynamic fill:#fff7ed,stroke:#f97316,color:#9a3412,stroke-width:2px,stroke-dasharray:5 5;
   classDef services fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
   classDef storage fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
 
@@ -158,19 +155,22 @@ flowchart TB
   class AUTH auth;
   class API,RMQ gateway;
   class QR,PA,TE,SA,JUDGE agents;
+  class PLAN,TOOLS_LOOP dynamic;
   class TS,KS services;
   class DB storage;
 ```
+
+**Legend:** thick arrows (`==>`) = fixed ADK phase order; dashed arrows = LLM-driven, different on every request.
 
 ### Agents
 
 | Agent | Model (default) | Role |
 |-------|-----------------|------|
-| **QueryRewriterAgent** | `gemini-3.1-flash-lite` | Turns follow-up messages into standalone queries; maintains rolling `historySummary` |
-| **PlanAgent** | `gemini-3.1-flash-lite` | Produces structured plan + todo list with optional `toolHint` |
-| **TodoExecutorAgent** | `gemini-3.1-flash-lite` | Runs todos, calls remote tools, updates todo status in DB |
-| **SynthesisAgent** | `gemini-3.1-flash-lite` | Writes user-facing answer from plan + execution results |
-| **Answer judge** (callback) | `gemini-3.1-flash-lite` | Scores synthesis for correct / partial / wrong before delivery |
+| **QueryRewriterAgent** | `gemini-3.1-flash-lite` | **Pre-workflow** (separate runner): turns follow-ups into standalone queries; maintains rolling `historySummary` |
+| **PlanAgent** | `gemini-3.1-flash-lite` | **Dynamic:** LLM produces 1–7 todos with optional `toolHint` per request |
+| **TodoExecutorAgent** | `gemini-3.1-flash-lite` | **Dynamic:** LLM executes the plan, calls 0..N tools (`knowledge_retrieval`, `sql_query`, `calculator`), updates todo status in DB |
+| **SynthesisAgent** | `gemini-3.1-flash-lite` | Writes user-facing answer from plan + execution findings |
+| **Answer judge** (callback) | `gemini-3.1-flash-lite` | Guardrail on synthesis output — scores correct / partial / wrong before delivery (not a separate pipeline step) |
 
 Workflow definition: `services/ai-gateway-service/src/agents/workflow.agent.ts`
 
