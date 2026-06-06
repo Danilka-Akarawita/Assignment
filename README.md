@@ -32,7 +32,7 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 Five application services share one PostgreSQL database (with **pgvector**), plus **Redis** (embedding cache) and **RabbitMQ** (async jobs).
 
 ```mermaid
-%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 110,'rankSpacing': 140,'htmlLabels': true},'themeVariables': {'fontFamily':'Arial','fontSize':'36px','lineColor':'#f8fafc','primaryTextColor':'#0f172a','edgeLabelBackground':'#1e293b','edgeLabelColor':'#f8fafc'}}}%%
+%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 110,'rankSpacing': 140,'htmlLabels': true},'themeVariables': {'fontFamily':'Arial','fontSize':'36px','background':'#000000','mainBkg':'#000000','clusterBkg':'#ffffff','clusterBorder':'#ffffff','titleColor':'#000000','primaryColor':'#ffffff','primaryTextColor':'#000000','secondaryTextColor':'#000000','tertiaryTextColor':'#000000','primaryBorderColor':'#000000','lineColor':'#ffffff','edgeLabelBackground':'#ffffff','edgeLabelColor':'#000000'}}}%%
 flowchart LR
   subgraph client [Client]
     FE[Next.js Frontend :3000]
@@ -88,33 +88,21 @@ flowchart LR
   GW -.->|publish chat.requested| RMQ
   RMQ -.->|consume gateway.agent| GW
 
-  style client fill:transparent,stroke:#e2e8f0,stroke-width:2px
-  style orchestration fill:transparent,stroke:#e2e8f0,stroke-width:2px
-  style core fill:transparent,stroke:#e2e8f0,stroke-width:2px
-  style infra fill:transparent,stroke:#e2e8f0,stroke-width:2px
-  style externalGroup fill:transparent,stroke:#e2e8f0,stroke-width:2px
+  style client fill:#ffffff,stroke:#ffffff,color:#000000,stroke-width:2px
+  style orchestration fill:#ffffff,stroke:#ffffff,color:#000000,stroke-width:2px
+  style core fill:#ffffff,stroke:#ffffff,color:#000000,stroke-width:2px
+  style infra fill:#ffffff,stroke:#ffffff,color:#000000,stroke-width:2px
+  style externalGroup fill:#ffffff,stroke:#ffffff,color:#000000,stroke-width:2px
 
-  classDef ui fill:#dbeafe,stroke:#2563eb,color:#0f172a,stroke-width:3px,font-size:36px;
-  classDef auth fill:#ffedd5,stroke:#ea580c,color:#0f172a,stroke-width:3px,font-size:36px;
-  classDef gateway fill:#ede9fe,stroke:#7c3aed,color:#0f172a,stroke-width:3px,font-size:36px;
-  classDef services fill:#dcfce7,stroke:#16a34a,color:#0f172a,stroke-width:3px,font-size:36px;
-  classDef storage fill:#fef3c7,stroke:#d97706,color:#0f172a,stroke-width:3px,font-size:36px;
-  classDef external fill:#fee2e2,stroke:#dc2626,color:#0f172a,stroke-width:3px,font-size:36px;
-  classDef rmq fill:#fff7ed,stroke:#f59e0b,color:#0f172a,stroke-width:4px,font-size:36px;
+  classDef node fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px,font-size:36px;
 
-  class FE ui;
-  class AUTH auth;
-  class GW,ADK gateway;
-  class KNOW,TOOLS services;
-  class PG,REDIS storage;
-  class RMQ rmq;
-  class GEMINI,OPENAI,LF external;
+  class FE,GW,ADK,AUTH,KNOW,TOOLS,PG,RMQ,REDIS,GEMINI,OPENAI,LF node;
 
-  linkStyle default stroke:#f8fafc,stroke-width:4px
-  linkStyle 16,17,18,19,20 stroke:#fef08a,stroke-width:5px
+  linkStyle default stroke:#ffffff,stroke-width:4px
+  linkStyle 16,17,18,19,20 stroke:#facc15,stroke-width:5px
 ```
 
-**Diagram legend:** thick white arrows = synchronous HTTP; **dashed yellow arrows** = RabbitMQ async jobs (service publishes event → queue → same or other service consumes).
+**Diagram legend:** black canvas; white boxes and subgraphs with black text; thick **white arrows** = synchronous HTTP; **dashed yellow arrows** = RabbitMQ async jobs (publish → queue → consume).
 
 ### Data & messaging flows
 
