@@ -20,7 +20,7 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 10. [Logging & LLM monitoring (Langfuse)](#logging--llm-monitoring-langfuse)
 11. [User feedback (thumbs up / down)](#user-feedback-thumbs-up--down)
 12. [Quick start](#quick-start)
-13. [CI/CD](#cicd)
+13. [CI](#ci)
 14. [Configuration](#configuration)
 15. [Future work (recommended order)](#future-work-recommended-order)
 16. [Related docs](#related-docs)
@@ -31,49 +31,7 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 
 Five application services share one PostgreSQL database (with **pgvector**), plus **Redis** (embedding cache) and **RabbitMQ** (async jobs).
 
-```mermaid
-%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 60,'rankSpacing': 85},'themeVariables': {'fontFamily':'Arial','fontSize':'18px','lineColor':'#4b5563','clusterBkg':'#f8fafc','clusterBorder':'#94a3b8'}}}%%
-flowchart TB
-  UI[Frontend UI]
-  AUTH[auth-service]
-  GW["ai-gateway-service<br/>ADK: query rewrite + agentic plan/execute/synthesize"]
-  KNOW[knowledge-service]
-  TOOLS[tool-execution-service]
-  RMQ[(RabbitMQ)]
-  DB[(PostgreSQL + pgvector)]
-  REDIS[(Redis)]
-
-  UI -->|HTTP| AUTH
-  UI -->|HTTP| GW
-  UI -->|HTTP| KNOW
-
-  GW -->|LLM-chosen tool calls| TOOLS
-  TOOLS -->|RAG search| KNOW
-
-  AUTH --> DB
-  GW --> DB
-  KNOW --> DB
-  TOOLS --> DB
-  KNOW -->|embedding cache| REDIS
-
-  AUTH -->|user.registered| RMQ
-  KNOW -->|document.uploaded| RMQ
-  RMQ -->|knowledge.ingestion| KNOW
-  GW -->|chat.requested| RMQ
-  RMQ -->|gateway.agent| GW
-
-  classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-  classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
-  classDef gateway fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
-  classDef services fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
-  classDef storage fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
-
-  class UI ui;
-  class AUTH auth;
-  class GW,RMQ gateway;
-  class KNOW,TOOLS services;
-  class DB,REDIS storage;
-```
+![System architecture](docs/images/architecture.png)
 
 ### Data & messaging flows
 
@@ -101,55 +59,7 @@ All services connect to the same Postgres instance in development; in production
 
 The **ai-gateway-service** runs a **Google ADK** agentic pipeline. The **orchestration shell** is a fixed `SequentialAgent` (plan → execute → synthesize), but **each request is LLM-planned**: todo count, tool choice, and tool-call sequence are decided at runtime — not hardcoded.
 
-```mermaid
-%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 60,'rankSpacing': 85},'themeVariables': {'fontFamily':'Arial','fontSize':'18px','lineColor':'#4b5563','clusterBkg':'#f8fafc','clusterBorder':'#94a3b8'}}}%%
-flowchart TB
-  UI[Frontend UI]
-  AUTH[auth-service]
-  API[ai-gateway-service API]
-  RMQ[(RabbitMQ chat queue)]
-
-  subgraph agents [Gateway Agent Flow]
-    QR[QueryRewriterAgent]
-    PA[PlanAgent]
-    TE[TodoExecutorAgent]
-    SA[SynthesisAgent]
-    JUDGE[Answer Judge]
-  end
-
-  TS[tool-execution-service]
-  KS[knowledge-service]
-  DB[(PostgreSQL)]
-
-  UI -->|Login / token refresh| AUTH
-  UI -->|POST message + JWT| API
-  API -->|Publish job| RMQ
-  RMQ -->|Worker consumes job| QR
-  QR --> PA
-  PA --> TE
-  TE -->|Tool calls| TS
-  TS -->|RAG search| KS
-  KS --> DB
-  TS --> DB
-  TE --> SA
-  SA --> JUDGE
-  JUDGE -->|Final response| API
-  API -->|Run status + final answer| UI
-
-  classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-  classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
-  classDef gateway fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
-  classDef agents fill:#fce7f3,stroke:#db2777,color:#831843,stroke-width:2px;
-  classDef services fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
-  classDef storage fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
-
-  class UI ui;
-  class AUTH auth;
-  class API,RMQ gateway;
-  class QR,PA,TE,SA,JUDGE agents;
-  class TS,KS services;
-  class DB storage;
-```
+![Agent orchestration](docs/images/agent-orchestration.png)
 
 ### Agents
 
@@ -188,6 +98,8 @@ Prompts are centralized per service — see [Prompts](#prompts).
 | PostgreSQL + pgvector | `pgvector/pgvector:pg15` | 5432 |
 | Redis | `redis:7-alpine` | 6379 |
 | RabbitMQ | `rabbitmq:3.12-management` | 5672 (AMQP), 15672 (UI) |
+
+Service Dockerfiles use multi-stage builds for local `docker compose` runs (**shared-builder → deps → builder → runner**; frontend: **deps → builder → runner**).
 
 ---
 
@@ -508,7 +420,7 @@ npm run dev --prefix services/frontend
 
 ---
 
-## CI/CD
+## CI
 
 Single workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 
