@@ -14,6 +14,8 @@ RUN npm ci --ignore-scripts --prefix ./services/auth-service
 FROM deps AS builder
 
 WORKDIR /app
+ARG DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres?schema=public
+ENV DATABASE_URL=${DATABASE_URL}
 
 COPY packages/shared ./packages/shared
 COPY services/auth-service ./services/auth-service
