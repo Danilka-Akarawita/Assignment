@@ -32,7 +32,7 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 Five application services share one PostgreSQL database (with **pgvector**), plus **Redis** (embedding cache) and **RabbitMQ** (async jobs).
 
 ```mermaid
-%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 95,'rankSpacing': 120},'themeVariables': {'fontFamily':'Arial','fontSize':'26px','lineColor':'#4b5563'}}}%%
+%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 110,'rankSpacing': 140,'htmlLabels': true},'themeVariables': {'fontFamily':'Arial','fontSize':'36px','lineColor':'#f8fafc','primaryTextColor':'#0f172a','edgeLabelBackground':'#1e293b','edgeLabelColor':'#f8fafc'}}}%%
 flowchart LR
   subgraph client [Client]
     FE[Next.js Frontend :3000]
@@ -61,51 +61,60 @@ flowchart LR
     LF[Langfuse]
   end
 
-  FE --> AUTH
-  FE --> GW
-  FE --> KNOW
+  FE ==>|HTTP| AUTH
+  FE ==>|HTTP| GW
+  FE ==>|HTTP| KNOW
 
-  GW --> ADK
-  GW --> KNOW
-  GW --> TOOLS
-  TOOLS --> KNOW
+  GW ==> ADK
+  GW ==>|HTTP| KNOW
+  GW ==>|POST /tools/execute| TOOLS
+  TOOLS ==>|HTTP| KNOW
 
-  AUTH --> PG
-  GW --> PG
-  KNOW --> PG
-  TOOLS --> PG
+  AUTH ==> PG
+  GW ==> PG
+  KNOW ==> PG
+  TOOLS ==> PG
 
-  AUTH --> RMQ
-  GW --> RMQ
-  KNOW --> RMQ
+  KNOW ==> REDIS
+  KNOW ==> OPENAI
+  TOOLS ==> OPENAI
 
-  KNOW --> REDIS
-  KNOW --> OPENAI
-  TOOLS --> OPENAI
+  ADK ==> GEMINI
+  GW ==> LF
 
-  ADK --> GEMINI
-  GW --> LF
+  AUTH -.->|publish user.registered| RMQ
+  KNOW -.->|publish document.uploaded| RMQ
+  RMQ -.->|consume knowledge.ingestion| KNOW
+  GW -.->|publish chat.requested| RMQ
+  RMQ -.->|consume gateway.agent| GW
 
-  style client fill:transparent,stroke:#94a3b8,stroke-width:1.5px
-  style orchestration fill:transparent,stroke:#94a3b8,stroke-width:1.5px
-  style core fill:transparent,stroke:#94a3b8,stroke-width:1.5px
-  style infra fill:transparent,stroke:#94a3b8,stroke-width:1.5px
-  style externalGroup fill:transparent,stroke:#94a3b8,stroke-width:1.5px
+  style client fill:transparent,stroke:#e2e8f0,stroke-width:2px
+  style orchestration fill:transparent,stroke:#e2e8f0,stroke-width:2px
+  style core fill:transparent,stroke:#e2e8f0,stroke-width:2px
+  style infra fill:transparent,stroke:#e2e8f0,stroke-width:2px
+  style externalGroup fill:transparent,stroke:#e2e8f0,stroke-width:2px
 
-  classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
-  classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
-  classDef gateway fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px;
-  classDef services fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
-  classDef storage fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px;
-  classDef external fill:#fee2e2,stroke:#dc2626,color:#7f1d1d,stroke-width:2px;
+  classDef ui fill:#dbeafe,stroke:#2563eb,color:#0f172a,stroke-width:3px,font-size:36px;
+  classDef auth fill:#ffedd5,stroke:#ea580c,color:#0f172a,stroke-width:3px,font-size:36px;
+  classDef gateway fill:#ede9fe,stroke:#7c3aed,color:#0f172a,stroke-width:3px,font-size:36px;
+  classDef services fill:#dcfce7,stroke:#16a34a,color:#0f172a,stroke-width:3px,font-size:36px;
+  classDef storage fill:#fef3c7,stroke:#d97706,color:#0f172a,stroke-width:3px,font-size:36px;
+  classDef external fill:#fee2e2,stroke:#dc2626,color:#0f172a,stroke-width:3px,font-size:36px;
+  classDef rmq fill:#fff7ed,stroke:#f59e0b,color:#0f172a,stroke-width:4px,font-size:36px;
 
   class FE ui;
   class AUTH auth;
   class GW,ADK gateway;
   class KNOW,TOOLS services;
-  class PG,REDIS,RMQ storage;
+  class PG,REDIS storage;
+  class RMQ rmq;
   class GEMINI,OPENAI,LF external;
+
+  linkStyle default stroke:#f8fafc,stroke-width:4px
+  linkStyle 16,17,18,19,20 stroke:#fef08a,stroke-width:5px
 ```
+
+**Diagram legend:** thick white arrows = synchronous HTTP; **dashed yellow arrows** = RabbitMQ async jobs (service publishes event → queue → same or other service consumes).
 
 ### Data & messaging flows
 
