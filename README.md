@@ -32,35 +32,20 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 Five application services share one PostgreSQL database (with **pgvector**), plus **Redis** (embedding cache) and **RabbitMQ** (async jobs).
 
 ```mermaid
-%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 75,'rankSpacing': 100},'themeVariables': {'fontFamily':'Arial','fontSize':'22px','lineColor':'#4b5563','clusterBkg':'transparent','clusterBorder':'#94a3b8'}}}%%
+%%{init: {'theme':'base','flowchart': {'curve':'linear','nodeSpacing': 90,'rankSpacing': 120},'themeVariables': {'fontFamily':'Arial','fontSize':'26px','lineColor':'#4b5563'}}}%%
 flowchart TB
-  subgraph client [Client]
-    FE[Next.js Frontend :3000]
-  end
-
-  subgraph gateway [Orchestration]
-    GW[ai-gateway-service :3004]
-    ADK[Google ADK Agents]
-    GW --> ADK
-  end
-
-  subgraph core [Core services]
-    AUTH[auth-service :3001]
-    KNOW[knowledge-service :3002]
-    TOOLS[tool-execution-service :3003]
-  end
-
-  subgraph infra [Infrastructure]
-    PG[(PostgreSQL + pgvector :5432)]
-    REDIS[(Redis :6379)]
-    RMQ[RabbitMQ :5672]
-  end
-
-  subgraph external [External APIs]
-    GEMINI[Google Gemini]
-    OPENAI[OpenAI]
-    LF[Langfuse]
-  end
+  FE[Next.js Frontend :3000]
+  AUTH[auth-service :3001]
+  GW[ai-gateway-service :3004]
+  ADK[Google ADK Agents]
+  KNOW[knowledge-service :3002]
+  TOOLS[tool-execution-service :3003]
+  PG[(PostgreSQL + pgvector :5432)]
+  REDIS[(Redis :6379)]
+  RMQ[RabbitMQ :5672]
+  GEMINI[Google Gemini]
+  OPENAI[OpenAI]
+  LF[Langfuse]
 
   FE -->|Login / register| AUTH
   FE -->|JWT auth| GW
@@ -85,12 +70,6 @@ flowchart TB
 
   ADK --> GEMINI
   GW --> LF
-
-  style client fill:transparent,stroke:#94a3b8,stroke-width:1.5px
-  style gateway fill:transparent,stroke:#94a3b8,stroke-width:1.5px
-  style core fill:transparent,stroke:#94a3b8,stroke-width:1.5px
-  style infra fill:transparent,stroke:#94a3b8,stroke-width:1.5px
-  style external fill:transparent,stroke:#94a3b8,stroke-width:1.5px
 
   classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
   classDef auth fill:#ffedd5,stroke:#ea580c,color:#7c2d12,stroke-width:2px;
