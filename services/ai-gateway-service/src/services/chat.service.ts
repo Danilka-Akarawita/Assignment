@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma.js';
 import { flushLangfuseTraces, traceAgentPipeline } from '../lib/langfuse.js';
 import { logger } from '../utils/logger.js';
 import { publishChatJob } from '../lib/rabbitmq.publisher.js';
+import { notifyAgentRunChanged } from './agent-run-events.service.js';
 import { AgentOrchestratorService } from './agent-orchestrator.service.js';
 import { ConversationService } from './conversation.service.js';
 
@@ -77,6 +78,8 @@ export class ChatService {
         where: { id: agentRun.id },
         data: { status: 'PLANNING' },
       });
+
+      await notifyAgentRunChanged(agentRun.id);
 
       return {
         conversationId: input.conversationId,
@@ -211,6 +214,8 @@ export class ChatService {
         where: { id: params.agentRunId },
         data: { status: 'FAILED', errorMessage: message },
       });
+
+      await notifyAgentRunChanged(params.agentRunId, 'run.failed');
 
       await prisma.message.create({
         data: {

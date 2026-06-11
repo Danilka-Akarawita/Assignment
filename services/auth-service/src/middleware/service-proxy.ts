@@ -13,6 +13,7 @@ function createProxy(
   return createProxyMiddleware({
     target,
     changeOrigin: true,
+    ws: true,
     pathRewrite: (path) => proxyPathRewrite(mountPath, path),
     on: {
       error: (err, _req, res) => {

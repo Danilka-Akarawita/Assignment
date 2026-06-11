@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api/http';
 import * as gatewayApi from '@/lib/api/gateway';
+import { watchAgentRun } from '@/lib/ws/agent-run-client';
 import type { AgentRun, AgentTodo, Message } from '@/lib/types';
 
 const POLL_MS = 2000;
@@ -60,6 +61,29 @@ export function useStreamingChat(accessToken: string | null) {
     [accessToken]
   );
 
+  const waitUntilDone = useCallback(
+    async (runId: number): Promise<AgentRun> => {
+      if (!accessToken) throw new Error('Not authenticated');
+
+      try {
+        return await watchAgentRun(accessToken, runId, {
+          onUpdate: (agentRun) => {
+            if (!abortRef.current) {
+              setState((s) => ({ ...s, agentRun }));
+            }
+          },
+          onError: () => {
+            // Fallback handled below.
+          },
+        });
+      } catch {
+        if (abortRef.current) throw new Error('Cancelled');
+        return pollUntilDone(runId);
+      }
+    },
+    [accessToken, pollUntilDone]
+  );
+
   const sendMessage = useCallback(
     async (
       conversationId: number,
@@ -89,7 +113,7 @@ export function useStreamingChat(accessToken: string | null) {
         let finalRun = result.agentRun ?? null;
 
         if (result.status === 'queued' && result.agentRunId) {
-          finalRun = await pollUntilDone(result.agentRunId);
+          finalRun = await waitUntilDone(result.agentRunId);
         }
 
         const { conversation } = await gatewayApi.getConversation(
@@ -130,7 +154,7 @@ export function useStreamingChat(accessToken: string | null) {
         throw err;
       }
     },
-    [accessToken, pollUntilDone]
+    [accessToken, waitUntilDone]
   );
 
   const cancel = useCallback(() => {

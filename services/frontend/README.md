@@ -5,8 +5,8 @@ Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 + shadcn/ui.
 ## Features
 
 - **Login / Register** — via API gateway (`POST /auth/login`, `/auth/register`)
-- **Chat** — proxied through auth-service to `ai-gateway-service` (async agent runs with live todo polling)
-- **Streaming UX** — assistant replies render with a typewriter effect; tool steps update while the agent runs
+- **Chat** — async agent runs with live todo updates via **WebSocket** (see root README — [Note for reviewers](../../README.md#note-for-reviewers--real-time-updates))
+- **Typewriter UX** — assistant replies animate client-side after the full response arrives; tool/todo panel updates via WebSocket
 - **Markdown** — `react-markdown` + GFM for assistant messages
 - **Knowledge** — upload, list, delete, and semantic search (proxied via auth-service)
 - **Conversation history** — sidebar with create/delete

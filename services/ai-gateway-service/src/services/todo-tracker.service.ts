@@ -1,6 +1,7 @@
 import { AgentRunStatus, TodoStatus } from '../generated/prisma/enums.js';
 import { getGatewayContext } from '../lib/request-context.js';
 import { prisma } from '../lib/prisma.js';
+import { notifyAgentRunChanged } from './agent-run-events.service.js';
 
 const STATUS_MAP: Record<string, TodoStatus> = {
   in_progress: TodoStatus.IN_PROGRESS,
@@ -35,6 +36,8 @@ export class TodoTracker {
       where: { id: agentRunId },
       data: { plan: plan as object, status: AgentRunStatus.EXECUTING },
     });
+
+    await notifyAgentRunChanged(agentRunId);
   }
 
   async updateTodo(
@@ -53,6 +56,8 @@ export class TodoTracker {
         ...(resultSummary ? { result: { summary: resultSummary } } : {}),
       },
     });
+
+    await notifyAgentRunChanged(agentRunId);
   }
 
   async updateFromContext(

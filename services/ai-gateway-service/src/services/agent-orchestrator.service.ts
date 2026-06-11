@@ -19,6 +19,7 @@ import { gatewayContext } from '../lib/request-context.js';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../utils/logger.js';
 import { buildKnowledgeCatalogForAgent } from '../lib/knowledge-catalog.js';
+import { notifyAgentRunChanged } from './agent-run-events.service.js';
 import { todoTracker } from './todo-tracker.service.js';
 
 export interface RunAgentInput {
@@ -205,6 +206,8 @@ export class AgentOrchestratorService {
       data: { status: 'PLANNING' },
     });
 
+    await notifyAgentRunChanged(agentRunId);
+
     return gatewayContext.run(
       { userId, authToken, agentRunId },
       async () => {
@@ -351,6 +354,8 @@ export class AgentOrchestratorService {
               : {}),
           },
         });
+
+        await notifyAgentRunChanged(agentRunId, 'run.completed');
 
         return {
           finalResponse,

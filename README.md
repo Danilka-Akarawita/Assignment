@@ -6,6 +6,28 @@ The system is built as **microservices** (Express + Prisma + PostgreSQL) with a 
 
 ---
 
+## Note for reviewers — real-time updates
+
+**At the time of my initial submission**, WebSocket-based agent-run updates were not yet finished. The default branch you may have reviewed uses **HTTP polling** (`GET /agent-runs/:id` every ~2s) for async chat progress — a deliberate MVP tradeoff (see [Tradeoffs](#tradeoffs)).
+
+**Since submission**, I implemented **WebSocket** push for live agent-run and todo updates on branch **`danilka_websocket_imp`** (this branch). If you would like to evaluate that upgrade path:
+
+```bash
+git fetch origin
+git checkout danilka_websocket_imp
+```
+
+| Branch | Agent-run UI transport |
+|--------|-------------------------|
+| Default / main (submission snapshot) | HTTP polling |
+| `danilka_websocket_imp` | WebSocket (`/conversations/ws`) with polling fallback |
+
+On this branch, after a chat message is queued the frontend subscribes over WebSocket; ai-gateway-service publishes `run.updated`, `run.completed`, and `run.failed` as the worker progresses. The async RabbitMQ worker architecture is unchanged — only the UI transport differs.
+
+This branch is offered for **optional consideration**; no obligation to review it for a fair assessment of the core system design.
+
+---
+
 ## Table of contents
 
 1. [Architecture](#architecture)
@@ -51,9 +73,20 @@ Proxied routes require a valid JWT at the gateway edge; downstream services stil
 | Flow | Mechanism | Purpose |
 |------|-----------|---------|
 | Document upload | HTTP → RabbitMQ `document.uploaded` | Async chunking, metadata, embedding |
-| Chat message | HTTP → RabbitMQ `chat.requested` → worker | Non-blocking agent pipeline; UI polls `GET /agent-runs/:id` |
+| Chat message | HTTP → RabbitMQ `chat.requested` → worker | Non-blocking agent pipeline; UI subscribes via WebSocket for run updates (this branch) |
 | User registration | RabbitMQ `user.registered` | Event hook for downstream consumers |
 | Tool execution | Gateway → HTTP `POST /tools/execute` | Centralized audit + validation |
+
+### Real-time updates (this branch)
+
+Agent-run progress on **`danilka_websocket_imp`** uses **WebSocket** push. See [Note for reviewers](#note-for-reviewers--real-time-updates) for context vs the submission snapshot.
+
+| Surface | Mechanism |
+|---------|-----------|
+| Agent run (status, todos) | WebSocket `ws://<api>/conversations/ws?token=<JWT>` → `{ type: 'subscribe', agentRunId }` |
+| Fallback | HTTP polling `GET /agent-runs/:id` every 2s if WebSocket fails |
+| Document ingestion | `GET /documents` refresh every 5s while the page is open |
+| Assistant reply | Full text over HTTP after run completes; typewriter effect is client-side only |
 
 ### Why not cross-service events?
 
@@ -88,7 +121,7 @@ All services connect to the same Postgres instance in development; in production
 
 The **ai-gateway-service** runs a **Google ADK** agentic pipeline. The **orchestration shell** is a fixed `SequentialAgent` (plan → execute → synthesize), but **each request is LLM-planned**: todo count, tool choice, and tool-call sequence are decided at runtime — not hardcoded.
 
-Chat messages are handled **asynchronously**: the HTTP handler publishes `chat.requested` to RabbitMQ and returns `queued`; a worker in the same service consumes the job and runs the agent pipeline. The UI polls `GET /agent-runs/:id` (via auth-service proxy) until the run completes.
+Chat messages are handled **asynchronously**: the HTTP handler publishes `chat.requested` to RabbitMQ and returns `queued`; a worker in the same service consumes the job and runs the agent pipeline. On this branch, the UI subscribes over **WebSocket** (`/conversations/ws`) for live run/todo updates until the run completes.
 
 ![Agent orchestration](docs/images/agent-orchestration.png)
 
@@ -118,7 +151,7 @@ Prompts are centralized per service — see [Prompts](#prompts).
 
 | Service | Port | Stack | Responsibility |
 |---------|------|-------|----------------|
-| [frontend](services/frontend) | 3000 | Next.js 16, React 19, Zustand | Login, chat UI, knowledge upload, agent-run polling, thumbs feedback |
+| [frontend](services/frontend) | 3000 | Next.js 16, React 19, Zustand | Login, chat UI, knowledge upload, agent-run WebSocket, thumbs feedback |
 | [auth-service](services/auth-service) | 3001 | Express, JWT, bcrypt, reverse proxy | **API gateway** — auth, JWT validation, proxy to gateway & knowledge |
 | [knowledge-service](services/knowledge-service) | 3002 | Express, pgvector, OpenAI | Upload, chunk, embed, metadata-enriched search |
 | [tool-execution-service](services/tool-execution-service) | 3003 | Express, mathjs, AI SDK | Calculator, NL→SQL, knowledge retrieval proxy |
@@ -293,7 +326,7 @@ Principles:
 | Gemini for agents | One stack (ADK native), fast iteration, lower $/1M tokens vs GPT-4 class | Two cloud vendors (Gemini + OpenAI); Gemini API availability tied to Google |
 | OpenAI for SQL + embeddings | Best-in-class embedding model; SQL generation separated from agent loop | Extra API key; SQL path not traced in Langfuse today unless extended |
 | Sequential agent workflow vs single ReAct loop | Predictable steps, easier debugging, clear todo UI | Higher latency (3+ LLM calls per message); no parallel tool execution |
-| Async chat via RabbitMQ + polling | Simple scaling of workers; UI stays responsive | Not true token streaming; 2s poll interval adds perceived delay |
+| Async chat via RabbitMQ + WebSocket | Live agent-run/todo updates without poll delay | WS proxy config; multi-instance needs shared pub/sub (e.g. Redis) |
 | Read-only SQL in app layer | Full control over validation, tenancy, audit | More code than DB extensions; schema must fit in context (Phase A limit) |
 | LLM answer judge on every reply | Catches hallucinations / weak grounding | Extra Gemini call per message; may block good answers if threshold too high |
 
